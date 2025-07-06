@@ -54,6 +54,8 @@ export interface Runtime {
     receiveTime: string,
     content: string
   ): void
+  PrivittyHandleMessage(response: String): Promise<void>
+  PrivittySendMessage(method: string, params: any ): Promise<string>
   getDesktopSettings(): Promise<DesktopSettingsType>
   setDesktopSetting(
     key: keyof DesktopSettingsType,

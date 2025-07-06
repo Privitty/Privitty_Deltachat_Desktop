@@ -4,6 +4,7 @@ import MessageListAndComposer from './message/MessageListAndComposer'
 import NoChatSelected from './NoChatSelected'
 import useChat from '../hooks/chat/useChat'
 import { RecoverableCrashScreen } from './screens/RecoverableCrashScreen'
+import { SharedDataProvider } from '../contexts/FileAttribContext'
 
 export default function MessageListView({
   accountId,
@@ -14,6 +15,7 @@ export default function MessageListView({
 
   if (chatWithLinger && accountId) {
     return (
+          
       <RecoverableCrashScreen reset_on_change_key={chatWithLinger.id}>
         <MessageListAndComposer accountId={accountId} chat={chatWithLinger} />
       </RecoverableCrashScreen>

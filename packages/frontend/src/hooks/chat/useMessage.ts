@@ -1,11 +1,19 @@
-import { useCallback } from 'react'
-
+//import { useCallback } from 'react'
+import React, { useCallback, useContext } from 'react'
 import useChat from './useChat'
 import { BackendRemote } from '../../backend-com'
 import { ChatView } from '../../contexts/ChatContext'
 import { getLogger } from '../../../../shared/logger'
 
 import type { T } from '@deltachat/jsonrpc-client'
+import { partial } from 'filesize'
+//import useDialog from '../../hooks/dialog/useDialog'
+//import SmallSelectDialogPrivitty from '../../components/SmallSelectDialogPrivitty'
+import { runtime } from '@deltachat-desktop/runtime-interface'
+import { dirname, basename, normalize } from 'path'
+//import { ContextMenuContext } from '../../contexts/ContextMenuContext'
+import { FileAttribute } from '../../contexts/FileAttribContext'
+import { PRV_APP_STATUS_PEER_OTSP_SPLITKEYS } from '../../../../target-electron/src/privitty/privitty_type'
 
 export type JumpToMessage = (params: {
   // "not from a different account" because apparently
@@ -52,7 +60,8 @@ export type JumpToMessage = (params: {
 export type SendMessage = (
   accountId: number,
   chatId: number,
-  message: Partial<T.MessageData>
+  message: Partial<T.MessageData>,
+  data: FileAttribute
 ) => Promise<void>
 
 export type ForwardMessage = (
@@ -132,12 +141,91 @@ export default function useMessage() {
     async (
       accountId: number,
       chatId: number,
-      message: Partial<T.MessageData>
+      message: Partial<T.MessageData>,
+      sharedData: FileAttribute
     ) => {
-      const msgId = await BackendRemote.rpc.sendMsg(accountId, chatId, {
-        ...MESSAGE_DEFAULT,
-        ...message,
-      })
+      //const { sharedData } = useSharedData()
+      console.log('filePathName:', message.file)
+      let msgId = 0
+      if (message.file && message.filename) {
+        
+       // await BackendRemote.rpc.removeDraft(accountId, chatId)
+
+        // await BackendRemote.rpc.miscSetDraft(
+        //   accountId,
+        //   chatId,
+        //   '',
+        //   fileName ?? null,
+        //   fileName ?? null,
+        //   null,
+        //   'File'
+        // )
+       // const msg = await BackendRemote.rpc.getDraft(accountId, chatId)
+
+       // message.file = msg?.file
+
+        msgId = await BackendRemote.rpc.sendMsgWithSubject(
+          accountId,
+          chatId,
+          {
+            ...MESSAGE_DEFAULT,
+            ...message,
+          },
+          "{'privitty':'true', 'type':'privfile'}"
+        )
+
+        await runtime.PrivittySendMessage('setFileAttributes', {
+          chatId: chatId,
+          prvFilename: sharedData?.FileDirectory,
+          outgoing: 1,
+          allowDownload: sharedData?.allowDownload ? 1 : 0,
+          allowForward: sharedData?.allowForward ? 1 : 0,
+          accessTime: sharedData?.allowedTime
+            ? Number(sharedData?.allowedTime)
+            : 0,
+        })
+
+        const response = await runtime.PrivittySendMessage('freshOtsp', {
+          chatId: chatId,
+          filePath: sharedData?.FileDirectory,
+        })
+        const jsonresp = JSON.parse(response)
+        if (jsonresp?.message_type === PRV_APP_STATUS_PEER_OTSP_SPLITKEYS) {
+          log.info('need to send otsp message:')
+          const subject = "{'privitty':'true', 'type':'OTSP_SENT'}"
+        
+        const base64Msg = btoa(String.fromCharCode.apply(null, jsonresp.pdu))
+        const MESSAGE_DEFAULT: T.MessageData = {
+          file: null,
+          filename: null,
+          viewtype: null,
+          html: null,
+          location: null,
+          overrideSenderName: null,
+          quotedMessageId: null,
+          quotedText: null,
+          text: null,
+        }
+        const message: Partial<T.MessageData> = {
+          text: base64Msg,
+          file: undefined,
+          filename: undefined,
+          quotedMessageId: null,
+          viewtype: 'Text',
+        }
+        BackendRemote.rpc.sendMsgWithSubject(
+          accountId,
+          chatId,
+          { ...MESSAGE_DEFAULT, ...message },
+          subject
+        )
+        }
+      } else {
+        msgId = await BackendRemote.rpc.sendMsg(accountId, chatId, {
+          ...MESSAGE_DEFAULT,
+          ...message,
+        })
+      }
 
       // Jump down on sending
       jumpToMessage({

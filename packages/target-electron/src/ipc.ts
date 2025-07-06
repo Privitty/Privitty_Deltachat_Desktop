@@ -60,7 +60,13 @@ export function getDCJsonrpcClient() {
 /** returns shutdown function */
 export async function init(cwd: string, logHandler: LogHandler) {
   const main = mainWindow
-  dcController = new DeltaChatController(cwd)
+  dcController = new DeltaChatController(cwd, onPrivittyMessage)
+
+  function onPrivittyMessage(Response: String) {
+    console.log('Privitty message IPC', Response)
+    
+  }
+
 
   try {
     await dcController.init()
@@ -262,6 +268,16 @@ export async function init(cwd: string, logHandler: LogHandler) {
       }
     }
   )
+
+  ipcMain.handle('privittyHandleMessage', (_ev, response) => {
+    console.log('Privitty message IPC', response)
+  })
+
+  ipcMain.handle('privitty_Send_Message', async (_ev, message, params) => {
+    console.log('Privitty message sent', message, params)
+    return dcController.sendPrivittyMessage(message, params)
+  })
+
 
   ipcMain.handle('get-desktop-settings', async _ev => {
     return DesktopSettings.state

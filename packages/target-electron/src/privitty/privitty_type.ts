@@ -1,0 +1,89 @@
+export const PRV_EVENT_CREATE_NONE = 0
+export const PRV_EVENT_CREATE_VAULT = 1
+export const PRV_EVENT_DEINIT = 2
+export const PRV_EVENT_ABORT = 3
+export const PRV_EVENT_SHUTDOWN = 4
+export const PRV_EVENT_ADD_NEW_PEER = 5
+export const PRV_EVENT_RECEIVED_PEER_PDU = 6
+export const PRV_EVENT_STOP_RENDERING = 7
+export const PRV_EVENT_PEER_OFFLINE = 8
+export const PRV_EVENT_PEER_TIMEOUT_REACHED = 9
+export const PRV_EVENT_FILE_SANITY_FAILED = 10
+/*
+ * NOTE: Add any event above PRV_EVENT_LAST and update PRV_EVENT_LAST
+ */
+export const PRV_EVENT_LAST = 11
+
+export const PRV_APP_STATUS_ERROR = 0
+export const PRV_APP_STATUS_FAILED = 1
+export const PRV_APP_STATUS_INVALID_REQUEST = 2
+export const PRV_APP_STATUS_VAULT_IS_READY = 3
+export const PRV_APP_STATUS_VAULT_FAILED = 4
+export const PRV_APP_STATUS_USER_ALREADY_EXISTS = 5
+export const PRV_APP_STATUS_USER_DOESNOT_EXISTS = 6
+export const PRV_APP_STATUS_PEER_ALREADY_ADDED = 7
+export const PRV_APP_STATUS_SEND_PEER_PDU = 8
+export const PRV_APP_STATUS_PEER_ADD_ACCEPTED = 9
+export const PRV_APP_STATUS_PEER_ADD_COMPLETE = 10
+export const PRV_APP_STATUS_PEER_ADD_CONCLUDED = 11
+export const PRV_APP_STATUS_PEER_ADD_PENDING = 12
+export const PRV_APP_STATUS_PEER_BLOCKED = 13
+export const PRV_APP_STATUS_FILE_ENCRYPTED = 14
+export const PRV_APP_STATUS_FILE_ENCRYPTION_FAILED = 15
+export const PRV_APP_STATUS_FILE_DECRYPTION_FAILED = 16
+export const PRV_APP_STATUS_INVALID_FILE = 17
+export const PRV_APP_STATUS_FILE_INACCESSIBLE = 18
+export const PRV_APP_STATUS_AWAITING_PEER_AUTH = 19
+export const PRV_APP_STATUS_PEER_SPLITKEYS_REQUEST = 20;
+export const PRV_APP_STATUS_PEER_SPLITKEYS_RESPONSE = 21;
+export const PRV_APP_STATUS_PEER_SPLITKEYS_REVOKED = 22;
+export const PRV_APP_STATUS_PEER_OTSP_SPLITKEYS = 23;
+export const PRV_APP_STATUS_DELETE_CHAT = 24
+export const PRV_APP_STATUS_GROUP_ALREADY_EXISTS = 25
+export const PRV_APP_STATUS_GROUP_ADD_ACCEPTED = 26
+export const PRV_APP_STATUS_FORWARD_PDU = 27
+export const PRV_APP_STATUS_FORWARD_SPLITKEYS_REQUEST = 28
+export const PRV_APP_STATUS_RELAY_FORWARD_SPLITKEYS_REQUEST = 29
+export const PRV_APP_STATUS_REVERT_FORWARD_SPLITKEYS_REQUEST = 30
+export const PRV_APP_STATUS_RELAY_BACKWARD_SPLITKEYS_RESPONSE = 31
+export const PRV_APP_STATUS_PEER_SPLITKEYS_DELETED = 32
+export const PRV_APP_STATUS_PEER_SPLITKEYS_UNDO_REVOKED  = 33
+
+/*
+ * NOTE: Add any event above PRV_APP_STATUS_LIB_LAST and update PRV_APP_STATUS_LIB_LAST
+ */
+export const PRV_APP_STATUS_LIB_LAST = 34
+
+export const PRV_SPLITKEYS_STATE_TYPE_NONE                             = 0;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_ACTIVE                 = 1;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_REQUEST                = 2;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_REVOKED                = 3;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_BLOCKED                = 4;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_DELETED                = 5;
+export const PRV_SPLITKEYS_STATE_TYPE_RELAY_SPLITKEY_TO_OWNER          = 6;
+export const PRV_SPLITKEYS_STATE_TYPE_RELAY_SPLITKEY_TO_RECIPIENT      = 7;
+export const PRV_SPLITKEYS_STATE_TYPE_SPLITKEYS_WAITING_OWNER_ACTION   = 8;
+
+
+/*
+ * NOTE: SSS status types
+ */
+export const PRV_SSS_STATE_TYPE_NONE = 0
+export const PRV_SSS_STATE_TYPE_SSS_ACTIVE = 1
+export const PRV_SSS_STATE_TYPE_SSS_REQUEST = 2
+export const PRV_SSS_STATE_TYPE_SSS_REVOKED = 3
+export const PRV_SSS_STATE_TYPE_SSS_BLOCKED = 4
+
+export type eventDataType = {
+  eventType: number
+  mID: string
+  mName: string
+  msgId: number
+  fromId: number
+  chatId: number
+  pCode: string
+  filePath: string
+  fileName: string
+  direction: number
+  pdu: Uint8Array[]
+}

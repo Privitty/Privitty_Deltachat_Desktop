@@ -121,6 +121,21 @@ class ElectronDeltachat extends BaseDeltaChat<ElectronTransport> {
 }
 
 class ElectronRuntime implements Runtime {
+ async PrivittyHandleMessage(response: String): Promise<void> {
+    // TODO: Implement PrivittyHandleMessage logic or leave as noop if not needed
+    // For now, just log or ignore
+    // this.log?.info('PrivittyHandleMessage called', message)
+    console.log('PrivittyHandleMessage runtime', response)
+    ipcBackend.invoke('privittyHandleMessage', response)
+    return Promise.resolve()
+  }
+  async PrivittySendMessage(method: string, params: any ): Promise<string> {
+    // TODO: Implement PrivittySendMessage logic or leave as noop if not needed
+    // For now, just log or ignore
+    // this.log?.info('PrivittySendMessage called', message)
+    console.log('PrivittySendMessage runtime', method, params)
+    return await ipcBackend.invoke('privitty_Send_Message', method, params)
+  }
   onDrop: DropListener | null = null
   setDropListener(onDrop: DropListener | null) {
     this.onDrop = onDrop

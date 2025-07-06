@@ -45,6 +45,7 @@ import { AppPicker } from '../AppPicker'
 import { AppInfo, AppStoreUrl } from '../AppPicker'
 import OutsideClickHelper from '../OutsideClickHelper'
 import { basename } from 'path'
+
 import { useHasChanged2 } from '../../hooks/useHasChanged'
 import { ScreenContext } from '../../contexts/ScreenContext'
 import {
@@ -54,6 +55,7 @@ import {
 } from '../AudioRecorder/AudioRecorder'
 import AlertDialog from '../dialogs/AlertDialog'
 import { unknownErrorToString } from '../helpers/unknownErrorToString'
+import { useSharedData } from '../../contexts/FileAttribContext'
 
 const log = getLogger('renderer/composer')
 
@@ -108,7 +110,7 @@ const Composer = forwardRef<
   const { openDialog } = useDialog()
   const { sendMessage } = useMessage()
   const { unselectChat } = useChat()
-
+  const { sharedData } = useSharedData();
   // The philosophy of the editing mode is as follows.
   // The edit mode can be thought of as a dialog,
   // even though it does not like one visually.
@@ -224,7 +226,7 @@ const Composer = forwardRef<
             log.debug(`Empty message: don't send it...`)
             return
           }
-
+          //const { sharedData } = useSharedData(); 
           const sendMessagePromise = sendMessage(accountId, chatId, {
             text: replaceColonsSafe(message),
             file: draftState.file || undefined,
@@ -234,7 +236,7 @@ const Composer = forwardRef<
                 ? draftState.quote.messageId
                 : null,
             viewtype: draftState.viewType,
-          })
+          },sharedData)
 
           await sendMessagePromise
 
@@ -909,7 +911,7 @@ export function useDraft(
     inputRef.current?.focus()
   }, [inputRef, saveDraft])
 
-  const removeFile = useCallback(() => {
+  const removeFile = useCallback(async () => {
     draftRef.current.file = ''
     draftRef.current.viewType = 'Text'
     saveDraft()
@@ -1161,6 +1163,7 @@ function useMessageEditing(
   }
 
   return {
+
     isEditingModeActive,
     originalMessage,
     doSendEditRequest,

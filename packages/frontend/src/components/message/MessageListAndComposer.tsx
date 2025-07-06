@@ -15,6 +15,8 @@ import { ReactionsBarProvider } from '../ReactionsBar'
 import useDialog from '../../hooks/dialog/useDialog'
 import useMessage from '../../hooks/chat/useMessage'
 import { Viewtype } from '@deltachat/jsonrpc-client/dist/generated/types'
+import {useSharedData} from '../../contexts/FileAttribContext'
+
 
 const log = getLogger('renderer/MessageListAndComposer')
 
@@ -167,11 +169,12 @@ export default function MessageListAndComposer({ accountId, chat }: Props) {
               const msgViewType: Viewtype = isImage(file.parsed)
                 ? 'Image'
                 : 'File'
+                const { sharedData } = useSharedData();
               sendMessage(accountId, chat.id, {
                 file: file.pathStr,
                 filename: file.parsed.name + file.parsed.ext,
                 viewtype: msgViewType,
-              })
+              },sharedData)
             }
           },
         })
@@ -296,6 +299,7 @@ export default function MessageListAndComposer({ accountId, chat }: Props) {
     : {}
 
   return (
+    
     <div
       className='message-list-and-composer'
       style={style}

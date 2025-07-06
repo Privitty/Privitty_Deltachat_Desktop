@@ -436,6 +436,51 @@ function buildContextMenu(
   ]
 }
 
+function getPrivittyReplacementText(message: T.Message): string {
+  if (message.isPrivittyMessage) {
+    if (message.subject.indexOf('new_peer_add') !== -1) {
+      message.text =
+        'Establishing guaranteed full control over your shared data, please wait ...'
+    } else if (
+      message.subject.indexOf('new_group_add') !== -1 ||
+      message.subject.indexOf('new_group_concluded') !== -1
+    ) {
+      message.text =
+        'This group is Privitty secure—take control and revoke data anytime.'
+    } else if (
+      message.subject.indexOf('new_peer_complete') !== -1 ||
+      message.subject.indexOf('new_peer_conclude') !== -1
+    ) {
+      message.text =
+        'You are Privitty secure—take control and revoke data anytime.'
+    } else if (message.subject.indexOf('forward_add_request') !== -1) {
+      message.text = 'A file has been forwarded to you.'
+    } else if (message.subject.indexOf('OTSP_SENT') !== -1) {
+      message.text = 'You granted 15 mins viewing access.'
+    } else if (
+      message.subject.indexOf('SPLITKEYS_REQUEST') !== -1 ||
+      message.subject.indexOf('SPLITKEYS_REQUESTING') !== -1
+    ) {
+      message.text = 'Requesting access from the owner ...'
+    } else if (message.subject.indexOf('SPLITKEYS_RESPONSE') !== -1) {
+      message.text = 'Granted access for next 15 mins.'
+    } else if (message.subject.indexOf('SPLITKEYS_REVOKED') !== -1) {
+      message.text = 'You revoked access'
+    } else if (message.subject.indexOf('SPLITKEYS_DELETED') !== -1) {
+      message.text = 'Requesting for a deleted message'
+    } else if (message.subject.indexOf('SPLITKEYS_UNDO_REVOKED') !== -1) {
+      message.text = 'You Undo revoke'
+    } else if (
+      message.subject.indexOf('relay_message') !== -1 ||
+      message.subject.indexOf('relay_request') !== -1 ||
+      message.subject.indexOf('relay_response') !== -1
+    ) {
+      message.text = 'relay_message'
+    }
+  }
+  return message.text || ''
+}
+
 export default function Message(props: {
   chat: T.FullChat
   message: T.Message
@@ -465,6 +510,7 @@ export default function Message(props: {
         MouseEvent
       >
     ) => {
+      if (message.isPrivittyMessage) return
       event.preventDefault() // prevent default runtime context menu from opening
       const chat = await BackendRemote.rpc.getFullChatById(
         accountId,
@@ -616,7 +662,7 @@ export default function Message(props: {
   }, [message.fileMime])
 
   // Info Message
-  if (message.isInfo) {
+  if (message.isInfo || message.isPrivittyMessage) {
     const isWebxdcInfo = message.systemMessageType === 'WebxdcInfoMessage'
     const isProtectionBrokenMsg =
       message.systemMessageType === 'ChatProtectionDisabled'
@@ -692,7 +738,7 @@ export default function Message(props: {
               )}
             />
           )}
-          {text}
+          {getPrivittyReplacementText(message) || text}
           {direction === 'outgoing' &&
             (status === 'sending' || status === 'error') && (
               <div
@@ -778,7 +824,7 @@ export default function Message(props: {
       <div dir='auto' className='text'>
         {text !== null ? (
           <MessageBody
-            text={text}
+            text={getPrivittyReplacementText(message) || text}
             tabindexForInteractiveContents={tabindexForInteractiveContents}
           />
         ) : null}

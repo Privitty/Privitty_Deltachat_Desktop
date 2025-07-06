@@ -39,6 +39,8 @@ import { openWebxdc } from '../../message/messageFunctions'
 import type { T } from '@deltachat/jsonrpc-client'
 import CreateChat from '../../dialogs/CreateChat'
 import { runtime } from '@deltachat-desktop/runtime-interface'
+import { SharedDataProvider } from '../../../contexts/FileAttribContext'
+
 
 type Props = {
   accountId?: number
@@ -275,7 +277,10 @@ export default function MainScreen({ accountId }: Props) {
             </span>
           )}
         </nav>
-        <MessageListView accountId={accountId} />
+        <SharedDataProvider>
+          <MessageListView accountId={accountId} />
+          
+        </SharedDataProvider>
       </section>
       {!chatListShouldBeHidden && <ConnectivityToast />}
     </div>

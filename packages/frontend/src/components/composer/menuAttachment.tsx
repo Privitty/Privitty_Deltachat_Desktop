@@ -1,5 +1,5 @@
 import React, { useCallback, useContext } from 'react'
-import { dirname, basename } from 'path'
+import { dirname, basename, normalize } from 'path'
 
 import { runtime } from '@deltachat-desktop/runtime-interface'
 import { useStore } from '../../stores/store'
@@ -21,6 +21,14 @@ import type { T } from '@deltachat/jsonrpc-client'
 import { BackendRemote } from '../../backend-com'
 import ConfirmSendingFiles from '../dialogs/ConfirmSendingFiles'
 import useMessage from '../../hooks/chat/useMessage'
+import SmallSelectDialogPrivitty from '../SmallSelectDialogPrivitty'
+
+import {
+  PRV_APP_STATUS_SEND_PEER_PDU,
+  PRV_EVENT_ADD_NEW_PEER,
+} from '../../../../target-electron/src/privitty/privitty_type'
+import { useSharedData } from '../../contexts/FileAttribContext'
+//import { set } from 'immutable'
 
 type Props = {
   addFileToDraft: (file: string, fileName: string, viewType: T.Viewtype) => void
@@ -43,6 +51,7 @@ export default function MenuAttachment({
   const { sendMessage } = useMessage()
   const [settings] = useStore(SettingsStoreInstance)
   const accountId = selectedAccountId()
+  const { sharedData, setSharedData } = useSharedData()
 
   const confirmSendMultipleFiles = (
     filePaths: string[],
@@ -60,11 +69,16 @@ export default function MenuAttachment({
         }
 
         for (const filePath of filePaths) {
-          await sendMessage(accountId, selectedChat.id, {
-            file: filePath,
-            filename: basename(filePath),
-            viewtype: msgViewType,
-          })
+          await sendMessage(
+            accountId,
+            selectedChat.id,
+            {
+              file: filePath,
+              filename: basename(filePath),
+              viewtype: msgViewType,
+            },
+            sharedData
+          )
           // start sending other files, don't wait until last file is sent
           if (runtime.getRuntimeInfo().target === 'browser') {
             // browser created temp files during upload that can now be cleaned up
@@ -75,7 +89,7 @@ export default function MenuAttachment({
     })
   }
 
-  const addFilenameFile = async () => {
+  const addFilenameFileMod = async () => {
     // function for files
     const { defaultPath, setLastPath } = await rememberLastUsedPath(
       LastUsedSlot.Attachment
@@ -83,20 +97,85 @@ export default function MenuAttachment({
     const files = await runtime.showOpenFileDialog({
       filters: [
         {
-          name: 'All Files',
-          extensions: ['*'],
+          name: 'pdf Files',
+          extensions: ['pdf'],
         },
       ],
-      properties: ['openFile', 'multiSelections'],
+      properties: ['openFile' /*, 'multiSelections'*/],
       defaultPath,
     })
 
     if (files.length === 1) {
       setLastPath(dirname(files[0]))
-      addFileToDraft(files[0], basename(files[0]), 'File')
+      let filePathName = files[0].replace(/\\/g, '/')
+      let encryptedFile: string = await runtime.PrivittySendMessage(
+          'encryptFile',
+          {
+            chatId: selectedChat?.id || 0,
+            filePath: dirname(filePathName),
+            fileName: basename(filePathName),
+            deleteInputFile: false,
+          }
+        )
+        console.log('encryptedFile:', encryptedFile)
+        let data = JSON.parse(encryptedFile)
+        console.log('result[0]:', data.result)
+        let fileName = JSON.parse(data.result).encryptedFile
+        console.log('parsed filename:', fileName)
+
+      addFileToDraft(fileName, basename(fileName), 'File')
+      setSharedData({
+            allowDownload: fileAttribute.allowDownload,
+            allowForward: fileAttribute.allowForward,
+            allowedTime: fileAttribute.allowedTime,
+            FileDirectory: fileName
+          })
+      
     } else if (files.length > 1) {
       confirmSendMultipleFiles(files, 'File')
     }
+  }
+let fileAttribute: {
+      allowDownload: boolean
+      allowForward: boolean
+      allowedTime: string
+    }
+
+  const addFilenameFile = async () => {
+    
+    let smallDialogID = await openDialog(SmallSelectDialogPrivitty, {
+      initialSelectedValue: {
+        allowDownload: false,
+        allowForward: false,
+        allowedTime: '',
+      },
+      values: [],
+      onSave: async (selectedValue: {
+        allowDownload: boolean
+        allowForward: boolean
+        allowedTime: string
+      }) => {
+        if (selectedValue) {
+          fileAttribute = selectedValue
+          console.log('Selected value:', selectedValue)
+          
+        }
+        closeDialog(smallDialogID);
+        await addFilenameFileMod();
+      },
+      title: 'File Attributes',
+      onClose: async (isConfirmed: boolean) => {
+        closeDialog(smallDialogID)
+        if (!isConfirmed) {
+          return
+        }
+      },
+      onCancel: () => {
+        console.log('Dialog cancelled')
+        closeDialog(smallDialogID)
+        return
+      },
+    })
   }
 
   const addFilenameMedia = async () => {
@@ -207,7 +286,106 @@ export default function MenuAttachment({
     },
   ]
 
-  const onClickAttachmentMenu = (event: React.MouseEvent<any, MouseEvent>) => {
+  const onClickAttachmentMenu = async (
+    event: React.MouseEvent<any, MouseEvent>
+  ) => {
+    const result = await runtime.PrivittySendMessage(
+      'isChatPrivittyProtected',
+      {
+        chatId: selectedChat?.id,
+      }
+    )
+    console.log('isChatPrivittyProtected response MenuAttachment', result)
+    if (result) {
+      try {
+        const resp = JSON.parse(result)
+        if (resp.result === 'false') {
+          const accountid: number =
+            (await BackendRemote.rpc.getSelectedAccountId()) || 0
+          const basicChat = await BackendRemote.rpc.getBasicChatInfo(
+            accountid,
+            selectedChat?.id || 0
+          )
+          console.log('accountid =', accountid, 'BasicChat =', basicChat)
+          const addpeerResponse = await runtime.PrivittySendMessage(
+            'produceEvent',
+            {
+              eventType: PRV_EVENT_ADD_NEW_PEER,
+              mID: '',
+              mName: basicChat.name,
+              msgId: basicChat.id,
+              fromId: 0,
+              chatId: selectedChat?.id,
+              pCode: '',
+              filePath: '',
+              fileName: '',
+              direction: 0,
+              pdu: [],
+            }
+          )
+          console.log('addpeerResponse =', addpeerResponse)
+          const parsedResponse = JSON.parse(addpeerResponse)
+          if (parsedResponse.message_type === PRV_APP_STATUS_SEND_PEER_PDU) {
+            const base64Msg = btoa(
+              String.fromCharCode.apply(null, parsedResponse.pdu)
+            )
+            const MESSAGE_DEFAULT: T.MessageData = {
+              file: null,
+              filename: null,
+              viewtype: null,
+              html: null,
+              location: null,
+              overrideSenderName: null,
+              quotedMessageId: null,
+              quotedText: null,
+              text: null,
+            }
+            const message: Partial<T.MessageData> = {
+              text: base64Msg,
+              file: undefined,
+              filename: undefined,
+              quotedMessageId: null,
+              viewtype: 'Text',
+            }
+
+            const msgId = await BackendRemote.rpc.sendMsgWithSubject(
+              accountId,
+              selectedChat?.id || 0,
+              {
+                ...MESSAGE_DEFAULT,
+                ...message,
+              },
+              "{'privitty':'true', 'type':'new_peer_add'}"
+            )
+          } else {
+            runtime.showNotification({
+              title: 'Privitty',
+              body: 'Privitty ADD peer state =' + parsedResponse.message_type,
+              icon: null,
+              chatId: 0,
+              messageId: 0,
+              accountId,
+              notificationType: 0,
+            })
+            return
+          }
+          runtime.showNotification({
+            title: 'Privitty',
+            body: 'Enabling Privitty security',
+            icon: null,
+            chatId: 0,
+            messageId: 0,
+            accountId,
+            notificationType: 0,
+          })
+          return
+        }
+      } catch (e) {
+        console.error('Error in MenuAttachment', e)
+        return
+      }
+    }
+
     const attachmentMenuButtonElement = document.querySelector(
       '#attachment-menu-button'
     ) as HTMLDivElement
