@@ -1,6 +1,6 @@
 import { powerMonitor } from 'electron'
 
-import { window } from './windows/main.js'
+import { window } from '../../frontend/src/components/windows/main.js'
 
 function onResumeFromSleep() {
   window?.webContents.send('onResumeFromSleep')

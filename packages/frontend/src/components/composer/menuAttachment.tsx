@@ -95,12 +95,7 @@ export default function MenuAttachment({
       LastUsedSlot.Attachment
     )
     const files = await runtime.showOpenFileDialog({
-      filters: [
-        {
-          name: 'pdf Files',
-          extensions: ['pdf'],
-        },
-      ],
+      filters: fileFilters,
       properties: ['openFile' /*, 'multiSelections'*/],
       defaultPath,
     })
@@ -141,8 +136,8 @@ let fileAttribute: {
       allowedTime: string
     }
 
-  const addFilenameFile = async () => {
-    
+
+  const openPrivittyProcess = async () => {
     let smallDialogID = await openDialog(SmallSelectDialogPrivitty, {
       initialSelectedValue: {
         allowDownload: false,
@@ -178,28 +173,54 @@ let fileAttribute: {
     })
   }
 
+let fileFilters = [
+        {
+          name: tx('image'),
+          extensions: IMAGE_EXTENSIONS,
+        },
+      ]
+
+
+  const addFilenameFile = async () => {
+    fileFilters = [
+        {
+          name: tx('file'),
+          extensions: ['*'],
+        },
+      ]
+   await openPrivittyProcess();
+  }
+
   const addFilenameMedia = async () => {
     // function for media
     const { defaultPath, setLastPath } = await rememberLastUsedPath(
       LastUsedSlot.Attachment
     )
-    const files = await runtime.showOpenFileDialog({
-      filters: [
+    fileFilters = [
         {
           name: tx('image'),
           extensions: IMAGE_EXTENSIONS,
         },
-      ],
-      properties: ['openFile', 'multiSelections'],
-      defaultPath,
-    })
+      ]
 
-    if (files.length === 1) {
-      setLastPath(dirname(files[0]))
-      addFileToDraft(files[0], basename(files[0]), 'Image')
-    } else if (files.length > 1) {
-      confirmSendMultipleFiles(files, 'Image')
-    }
+       await openPrivittyProcess();
+    // const files = await runtime.showOpenFileDialog({
+    //   filters: [
+    //     {
+    //       name: tx('image'),
+    //       extensions: IMAGE_EXTENSIONS,
+    //     },
+    //   ],
+    //   properties: ['openFile', 'multiSelections'],
+    //   defaultPath,
+    // })
+
+    // if (files.length === 1) {
+    //   setLastPath(dirname(files[0]))
+    //   addFileToDraft(files[0], basename(files[0]), 'Image')
+    // } else if (files.length > 1) {
+    //   confirmSendMultipleFiles(files, 'Image')
+    // }
   }
 
   const onVideoChat = useCallback(async () => {

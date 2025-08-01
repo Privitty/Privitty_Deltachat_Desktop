@@ -33,13 +33,13 @@ import {
 } from './application-constants.js'
 import { LogHandler } from './log-handler.js'
 import { ExtendedAppMainProcess } from './types.js'
-import * as mainWindow from './windows/main.js'
-import { openHelpWindow } from './windows/help.js'
+import * as mainWindow from '../../frontend/src/components/windows/main.js'
+import { openHelpWindow } from '../../frontend/src/components/windows/help.js'
 import { DesktopSettings } from './desktop_settings.js'
 import { getConfigPath } from './application-constants.js'
 import { DesktopSettingsType, RuntimeInfo } from '../../shared/shared-types.js'
 import { set_has_unread, updateTrayIcon } from './tray.js'
-import { openHtmlEmailWindow } from './windows/html_email.js'
+import { openHtmlEmailWindow } from '../../frontend/src/components/windows/html_email.js'
 import { appx, mapPackagePath } from './isAppx.js'
 import DeltaChatController from './deltachat/controller.js'
 import { BuildInfo } from './get-build-info.js'
@@ -64,9 +64,7 @@ export async function init(cwd: string, logHandler: LogHandler) {
 
   function onPrivittyMessage(Response: String) {
     console.log('Privitty message IPC', Response)
-    
   }
-
 
   try {
     await dcController.init()
@@ -277,7 +275,6 @@ export async function init(cwd: string, logHandler: LogHandler) {
     console.log('Privitty message sent', message, params)
     return dcController.sendPrivittyMessage(message, params)
   })
-
 
   ipcMain.handle('get-desktop-settings', async _ev => {
     return DesktopSettings.state

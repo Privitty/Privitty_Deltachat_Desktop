@@ -4,7 +4,7 @@ import { yerpc, BaseDeltaChat, T } from '@deltachat/jsonrpc-client'
 import { getRPCServerPath } from '@deltachat/stdio-rpc-server'
 
 import { getLogger } from '../../../shared/logger.js'
-import * as mainWindow from '../windows/main.js'
+import * as mainWindow from '../../../frontend/src/components/windows/main.js'
 import { ExtendedAppMainProcess } from '../types.js'
 import DCWebxdc from './webxdc.js'
 import { DesktopSettings } from '../desktop_settings.js'
@@ -426,8 +426,11 @@ export default class DeltaChatController extends EventEmitter {
           this.jsonrpcRemote.rpc.deleteMessages(responseObj.result.contextId, [
             responseObj.result.event.msgId,
           ])
+        } else if (subject.indexOf('privfile') !== -1) {
+          console.log('privittyHandleIncomingMsg privfile')
+          return
         } else {
-          // Decode Base64 to binary string
+          // Dec  de Base64 to binary string
           const binaryString = atob(Msg.text)
 
           // Create byte array
@@ -458,9 +461,9 @@ export default class DeltaChatController extends EventEmitter {
               pdu: Array.from(byteArray),
             }
           )
-          this.jsonrpcRemote.rpc.deleteMessages(responseObj.result.contextId, [
-            responseObj.result.event.msgId,
-          ])
+          // this.jsonrpcRemote.rpc.deleteMessages(responseObj.result.contextId, [
+          //   responseObj.result.event.msgId,
+          // ])
         }
       }
     }
@@ -505,6 +508,7 @@ export default class DeltaChatController extends EventEmitter {
           log.error('jsonrpc-decode', error)
         }
         if (response.indexOf('"kind":"IncomingMsg"') !== -1) {
+          console.log('IncomingMsg =', response)
           this.privittyHandleIncomingMsg(response)
         }
         mainWindow.send('json-rpc-message', response)
@@ -576,6 +580,10 @@ export default class DeltaChatController extends EventEmitter {
             this.callbackMap.delete(resp.seqNo)
           } else {
             console.warn('Unhandled response:', response)
+            if (resp.seqNo === 0) {
+              console.warn('PrivittyController: seqNo is 0')
+              this.privittyHandleServerResponse(response)
+            }
           }
         } catch (error) {
           console.error('Failed to parse response:', error)

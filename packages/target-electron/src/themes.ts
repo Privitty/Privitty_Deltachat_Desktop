@@ -5,7 +5,7 @@ import { app as rawApp, ipcMain, nativeTheme } from 'electron'
 
 import { getCustomThemesPath, htmlDistDir } from './application-constants.js'
 import { ExtendedAppMainProcess } from './types.js'
-import * as mainWindow from './windows/main.js'
+import * as mainWindow from '../../frontend/src/components/windows/main.js'
 import { getLogger } from '../../shared/logger.js'
 import { DesktopSettings } from './desktop_settings.js'
 

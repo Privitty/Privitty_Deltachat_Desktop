@@ -10,8 +10,14 @@ import ConfirmationDialog from '../dialogs/ConfirmationDialog'
 import MessageDetail from '../dialogs/MessageDetail/MessageDetail'
 
 import type { OpenDialog } from '../../contexts/DialogContext'
-import type { T } from '@deltachat/jsonrpc-client'
+import { C, type T } from '@deltachat/jsonrpc-client'
 import ConfirmDeleteMessageDialog from '../dialogs/ConfirmDeleteMessage'
+import { basename, dirname, extname } from 'path'
+import { json } from 'stream/consumers'
+import {
+  PRV_APP_STATUS_SEND_PEER_PDU,
+  PRV_EVENT_ADD_NEW_PEER,
+} from '../../../../target-electron/src/privitty/privitty_type'
 
 const log = getLogger('render/msgFunctions')
 
@@ -36,18 +42,91 @@ export async function openAttachmentInShell(msg: Type.Message) {
     throw new Error('message has no file to open')
   }
   const tmpFile = await runtime.copyFileToInternalTmpDir(msg.fileName, msg.file)
-  if (!runtime.openPath(tmpFile)) {
+  let filePathName = tmpFile
+  if (extname(msg.fileName) === '.prv') {
+    filePathName = tmpFile.replace(/\\/g, '/')
+    const response = await runtime.PrivittySendMessage('decryptFile', {
+      chatId: msg.chatId,
+      filePath: dirname(filePathName),
+      fileName: msg.fileName,
+      direction: msg.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
+    })
+    console.log('decryptFile response:', response)
+    filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
+    console.log('decrypted file path:', filePathName)
+    if (filePathName === 'SPLITKEYS_EXPIRED') {
+      runtime.showNotification({
+        title: 'Privitty',
+        body: 'OTSP expired',
+        icon: null,
+        chatId: msg.chatId,
+        messageId: msg.id,
+        accountId: selectedAccountId(),
+        notificationType: 0,
+      })
+
+      return
+    } else if (filePathName === 'SPLITKEYS_REQUESTED') {
+      runtime.showNotification({
+        title: 'Privitty',
+        body: 'OTSP already requested',
+        icon: null,
+        chatId: msg.chatId,
+        messageId: msg.id,
+        accountId: selectedAccountId(),
+        notificationType: 0,
+      })
+      return
+    }
+  }
+  if (!runtime.openPath(filePathName)) {
     log.info(
       "file couldn't be opened, try saving it in a different place and try to open it from there"
     )
   }
 }
 
-export function openForwardDialog(
+const privittyForwardable = async (message: T.Message): Promise<boolean> => {
+  let isforwardable = true
+  if (message.file) {
+    isforwardable = false
+    const response = await runtime.PrivittySendMessage(
+      'getFileForwardAccessState',
+      {
+        chatId: message.chatId,
+        fileName: message.fileName,
+        outgoing: message.fromId === C.DC_CONTACT_ID_SELF,
+      }
+    )
+    const result = JSON.parse(response)
+    //"result":"{"fileAccessState":"active"}
+    if (result.result) {
+      isforwardable = JSON.parse(result.result).fileAccessState === 'active'
+    }
+    console.log('isforwardable:', isforwardable, result)
+  }
+  return isforwardable
+}
+
+export async function openForwardDialog(
   openDialog: OpenDialog,
   message: Type.Message
 ) {
-  openDialog(ForwardMessage, { message })
+  const forwardable = await privittyForwardable(message)
+  if (!forwardable) {
+    log.error('message has no file to forward:', message)
+    // show notification
+    runtime.showNotification({
+      title: 'Privitty',
+      body: 'File is not forwardable',
+      icon: null,
+      chatId: message.chatId,
+      messageId: message.id,
+      accountId: selectedAccountId(),
+      notificationType: 0,
+    })
+    throw new Error('message has no file to forward')
+  } else openDialog(ForwardMessage, { message })
 }
 
 export function confirmDialog(
@@ -81,9 +160,154 @@ export async function confirmForwardMessage(
     tx('forward')
   )
   if (yes) {
-    await BackendRemote.rpc.forwardMessages(accountId, [message.id], chat.id)
+    if (message.file && message.fileName) {
+      const result = await runtime.PrivittySendMessage(
+        'isChatPrivittyProtected',
+        {
+          chatId: chat?.id,
+        }
+      )
+      console.log('isChatPrivittyProtected response MenuAttachment', result)
+      if (result) {
+        try {
+          const resp = JSON.parse(result)
+          if (resp.result === 'false') {
+            console.log(
+              'accountid =',
+              accountId,
+              'chat.id =',
+              chat.id,
+              'chatName =',
+              chat.name
+            )
+            const addpeerResponse = await runtime.PrivittySendMessage(
+              'produceEvent',
+              {
+                eventType: PRV_EVENT_ADD_NEW_PEER,
+                mID: '',
+                mName: chat.name,
+                msgId: chat.id,
+                fromId: 0,
+                chatId: chat.id,
+                pCode: '',
+                filePath: '',
+                fileName: '',
+                direction: 0,
+                pdu: [],
+              }
+            )
+            console.log('addpeerResponse =', addpeerResponse)
+            const parsedResponse = JSON.parse(addpeerResponse)
+            if (parsedResponse.message_type === PRV_APP_STATUS_SEND_PEER_PDU) {
+              const base64Msg = btoa(
+                String.fromCharCode.apply(null, parsedResponse.pdu)
+              )
+              const MESSAGE_DEFAULT: T.MessageData = {
+                file: null,
+                filename: null,
+                viewtype: null,
+                html: null,
+                location: null,
+                overrideSenderName: null,
+                quotedMessageId: null,
+                quotedText: null,
+                text: null,
+              }
+              const message: Partial<T.MessageData> = {
+                text: base64Msg,
+                file: undefined,
+                filename: undefined,
+                quotedMessageId: null,
+                viewtype: 'Text',
+              }
+
+              const msgId = await BackendRemote.rpc.sendMsgWithSubject(
+                accountId,
+                chat?.id || 0,
+                {
+                  ...MESSAGE_DEFAULT,
+                  ...message,
+                },
+                "{'privitty':'true', 'type':'new_peer_add'}"
+              )
+            } else {
+              runtime.showNotification({
+                title: 'Privitty',
+                body: 'Privitty ADD peer state =' + parsedResponse.message_type,
+                icon: null,
+                chatId: 0,
+                messageId: 0,
+                accountId,
+                notificationType: 0,
+              })
+              return
+            }
+            runtime.showNotification({
+              title: 'Privitty',
+              body: 'Enabling Privitty security',
+              icon: null,
+              chatId: 0,
+              messageId: 0,
+              accountId,
+              notificationType: 0,
+            })
+            return
+          }
+        } catch (e) {
+          console.error('Error in MenuAttachment', e)
+          return
+        }
+      }
+      await BackendRemote.rpc.forwardMessages(accountId, [message.id], chat.id)
+      //we need to send a split key to the peer
+      const filePathName = message.file.replace(/\\/g, '/')
+      const responseFwdPeerAdd = await runtime.PrivittySendMessage('forwardPeerAdd', {
+        sourceChatId:message.chatId,
+        fwdToChatId:chat.id,
+        fwdToName:chat.name,
+        filePath:dirname(filePathName),
+        fileName:basename(filePathName),
+        outgoing: 1,
+      })
+      const parsedResponse = JSON.parse(responseFwdPeerAdd)
+            if (parsedResponse.message_type === PRV_APP_STATUS_SEND_PEER_PDU) {
+              const base64Msg = btoa(
+                String.fromCharCode.apply(null, parsedResponse.pdu)
+              )
+              const MESSAGE_DEFAULT: T.MessageData = {
+                file: null,
+                filename: null,
+                viewtype: null,
+                html: null,
+                location: null,
+                overrideSenderName: null,
+                quotedMessageId: null,
+                quotedText: null,
+                text: null,
+              }
+              const message: Partial<T.MessageData> = {
+                text: base64Msg,
+                file: undefined,
+                filename: undefined,
+                quotedMessageId: null,
+                viewtype: 'Text',
+              }
+
+              const msgId = await BackendRemote.rpc.sendMsgWithSubject(
+                accountId,
+                chat?.id || 0,
+                {
+                  ...MESSAGE_DEFAULT,
+                  ...message,
+                },
+                "{'privitty':'true', 'type':'new_peer_add'}"
+              )
+            }
+    } else {
+      await BackendRemote.rpc.forwardMessages(accountId, [message.id], chat.id)
+    }
+    return yes
   }
-  return yes
 }
 
 export function confirmDeleteMessage(

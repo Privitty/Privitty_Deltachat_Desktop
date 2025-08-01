@@ -1,7 +1,7 @@
 import { platform } from 'os'
 import { app, Notification, nativeImage, ipcMain } from 'electron'
 
-import * as mainWindow from './windows/main.js'
+import * as mainWindow from '../../frontend/src/components/windows/main.js'
 import { appIcon } from './application-constants.js'
 import type { DcNotification } from '../../shared/shared-types.js'
 import { getLogger } from '../../shared/logger.js'

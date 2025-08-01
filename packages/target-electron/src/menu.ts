@@ -10,7 +10,7 @@ import {
 import { getLogger } from '../../shared/logger.js'
 import { getLogsPath } from './application-constants.js'
 import { LogHandler } from './log-handler.js'
-import * as mainWindow from './windows/main.js'
+import * as mainWindow from '../../frontend/src/components/windows/main.js'
 import { DesktopSettings } from './desktop_settings.js'
 import { getCurrentLocaleDate, tx } from './load-translations.js'
 import { mapPackagePath } from './isAppx.js'

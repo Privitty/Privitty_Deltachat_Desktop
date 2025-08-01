@@ -6,7 +6,7 @@ import { getLogger } from '../../shared/logger.js'
 import { supportedURISchemes } from './application-constants.js'
 import { showDeltaChat } from './tray.js'
 import { ExtendedAppMainProcess } from './types.js'
-import { send, window } from './windows/main.js'
+import { send, window } from '../../frontend/src/components/windows/main.js'
 import { platform } from 'os'
 
 const log = getLogger('main/open_url')

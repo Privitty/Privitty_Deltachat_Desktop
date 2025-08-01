@@ -3,7 +3,7 @@ import { globalShortcut } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
-import * as mainWindow from './windows/main.js'
+import * as mainWindow from '../../frontend/src/components/windows/main.js'
 import { ExtendedAppMainProcess } from './types.js'
 import { getLogger } from '../../shared/logger.js'
 import { DesktopSettings } from './desktop_settings.js'

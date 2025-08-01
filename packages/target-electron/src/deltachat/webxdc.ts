@@ -28,7 +28,7 @@ import { truncateText } from '@deltachat-desktop/shared/util.js'
 import { tx } from '../load-translations.js'
 import { Bounds, DcOpenWebxdcParameters } from '../../../shared/shared-types.js'
 import { DesktopSettings } from '../desktop_settings.js'
-import { window as main_window } from '../windows/main.js'
+import { window as main_window } from '../../../frontend/src/components/windows/main.js'
 import { writeTempFileFromBase64 } from '../ipc.js'
 import {
   getAppMenu,
