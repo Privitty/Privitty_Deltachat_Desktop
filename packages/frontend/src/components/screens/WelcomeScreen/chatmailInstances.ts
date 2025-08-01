@@ -4,7 +4,7 @@ import type { QrWithUrl } from '../../../backend/qr'
 export const CHATMAIL_INSTANCES_LIST_URL = 'https://delta.chat/chatmail'
 
 // Hostname of the default chatmail instance
-export const DEFAULT_CHATMAIL_HOSTNAME = 'nine.testrun.org'
+export const DEFAULT_CHATMAIL_HOSTNAME = 'chat.privittytech.com'
 
 // Full URL for the default chatmail instance, used in DCACCOUNT QR codes
 export const DEFAULT_CHATMAIL_QR_URL = `https://${DEFAULT_CHATMAIL_HOSTNAME}/cgi-bin/newemail.py`

@@ -62,7 +62,7 @@ pub async fn handle_deep_link(
             potential_scheme.as_str(),
             "openpgp4fpr" | "dcaccount" | "dclogin" | "mailto"
         ) || (potential_scheme == "https"
-            && deeplink_or_xdc.starts_with("https://i.delta.chat/"))
+            && deeplink_or_xdc.starts_with("https://i.privittytech.com/"))
         {
             main_window_channel
                 .emit_event(MainWindowEvents::DeepLinkOpened(deeplink_or_xdc))
