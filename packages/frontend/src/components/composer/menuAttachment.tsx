@@ -125,6 +125,13 @@ export default function MenuAttachment({
             allowedTime: fileAttribute.allowedTime,
             FileDirectory: fileName
           })
+      runtime.PrivittySendMessage(
+          'deleteFile',
+          {
+            filePath: dirname(fileName),
+            fileName: basename(fileName),
+          }
+        )
       
     } else if (files.length > 1) {
       confirmSendMultipleFiles(files, 'File')

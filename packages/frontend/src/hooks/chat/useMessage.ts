@@ -171,7 +171,7 @@ export default function useMessage() {
             ...MESSAGE_DEFAULT,
             ...message,
           },
-          "{'privitty':'true', 'type':'privfile'}"
+          ""
         )
 
         await runtime.PrivittySendMessage('setFileAttributes', {

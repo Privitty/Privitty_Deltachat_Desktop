@@ -259,14 +259,19 @@ export async function confirmForwardMessage(
         }
       }
       await BackendRemote.rpc.forwardMessages(accountId, [message.id], chat.id)
+      //work around for privitty file forwarding create the temp
+      const tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
+      let filePathName1 = tmpFile
+      filePathName1 = tmpFile.replace(/\\/g, '/')
+
       //we need to send a split key to the peer
       const filePathName = message.file.replace(/\\/g, '/')
       const responseFwdPeerAdd = await runtime.PrivittySendMessage('forwardPeerAdd', {
         sourceChatId:message.chatId,
         fwdToChatId:chat.id,
         fwdToName:chat.name,
-        filePath:dirname(filePathName),
-        fileName:basename(filePathName),
+        filePath:dirname(filePathName1),
+        fileName:basename(filePathName1),
         outgoing: 1,
       })
       const parsedResponse = JSON.parse(responseFwdPeerAdd)

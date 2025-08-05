@@ -16,6 +16,7 @@ import { PrivittyServer } from '../privitty/client.js'
 import {
   PRV_APP_STATUS_FORWARD_PDU,
   PRV_APP_STATUS_FORWARD_SPLITKEYS_REQUEST,
+  PRV_APP_STATUS_FORWARD_SPLITKEYS_REVOKED,
   PRV_APP_STATUS_GROUP_ADD_ACCEPTED,
   PRV_APP_STATUS_PEER_ADD_COMPLETE,
   PRV_APP_STATUS_PEER_ADD_CONCLUDED,
@@ -250,7 +251,7 @@ export default class DeltaChatController extends EventEmitter {
         this.sendMessageToPeer(
           "{'privitty':'true', 'type':'forward_add_request'}",
           pdu,
-          chatId
+          forwardToChatId
         )
       } else if (statusCode == PRV_APP_STATUS_PEER_ADD_COMPLETE) {
         console.log(
@@ -326,7 +327,17 @@ export default class DeltaChatController extends EventEmitter {
           pdu,
           chatId
         )
-      } else if (statusCode == PRV_APP_STATUS_PEER_SPLITKEYS_DELETED) {
+      } else if (statusCode == PRV_APP_STATUS_FORWARD_SPLITKEYS_REVOKED) {
+        console.log('JAVA-Privitty', 'Peer SPLITKEYS undo revoked')
+        // new Handler(Looper.getMainLooper()).post(() -> {
+        //   Toast.makeText(getApplicationContext(), "You revoked access", Toast.LENGTH_SHORT).show();
+        // });
+        this.sendMessageToPeer(
+          "{'privitty':'true', 'type':'SPLITKEYS_UNDO_REVOKED'}",
+          pdu,
+          forwardToChatId
+        )
+       }else if (statusCode == PRV_APP_STATUS_PEER_SPLITKEYS_DELETED) {
         console.log('JAVA-Privitty', 'Peer SPLITKEYS deleted')
         this.sendMessageToPeer(
           "{'privitty':'true', 'type':'SPLITKEYS_DELETED'}",
@@ -374,7 +385,7 @@ export default class DeltaChatController extends EventEmitter {
         this.sendMessageToPeer(
           "{'privitty':'true', 'type':'relay_request'}",
           pdu,
-          chatId
+          forwardToChatId
         )
       } else if (
         statusCode == PRV_APP_STATUS_RELAY_BACKWARD_SPLITKEYS_RESPONSE
@@ -391,7 +402,7 @@ export default class DeltaChatController extends EventEmitter {
         this.sendMessageToPeer(
           "{'privitty':'true', 'type':'relay_response'}",
           pdu,
-          chatId
+          forwardToChatId
         )
       } else {
         console.error('JAVA-Privitty', 'StatusCode: ' + statusCode)
@@ -416,7 +427,7 @@ export default class DeltaChatController extends EventEmitter {
     if (Msg.showPadlock && !chatInfo.isContactRequest) {
       const subject = Msg.subject
 
-      if (subject.indexOf('privitty') !== -1 && subject.indexOf('Re:') == -1) {
+      if (Msg.isPrivittyMessage) {
         console.log('privittyHandleIncomingMsg subject =', subject)
         if (subject.indexOf('new_peer_conclude') !== -1) {
           this.jsonrpcRemote.rpc.deleteMessages(responseObj.result.contextId, [

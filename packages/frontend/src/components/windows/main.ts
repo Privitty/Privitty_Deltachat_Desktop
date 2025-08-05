@@ -262,7 +262,34 @@ export function createSecureViewerWindow(filePath: string) {
   secureViewerWindow.on('closed', () => {
     secureViewerWindow = null
   })
+
+  secureViewerWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      'Content-Security-Policy': [
+        "default-src 'none'; " +
+        "script-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "media-src 'self' data:; " +
+        "frame-src 'none'; " +
+        "connect-src 'self'"
+      ],
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block'
+    }
+  });
+});
+
+secureViewerWindow.webContents.on('context-menu', (e) => {
+  e.preventDefault();
+});
+
 }
+
+
 
 export function hide() {
   window?.hide()
