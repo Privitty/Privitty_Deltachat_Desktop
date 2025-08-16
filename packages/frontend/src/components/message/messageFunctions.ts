@@ -8,6 +8,9 @@ import { internalOpenWebxdc } from '../../system-integration/webxdc'
 import ForwardMessage from '../dialogs/ForwardMessage'
 import ConfirmationDialog from '../dialogs/ConfirmationDialog'
 import MessageDetail from '../dialogs/MessageDetail/MessageDetail'
+import SecurePDFViewer from '../dialogs/SecurePDFViewer'
+import SecureImageViewer from '../dialogs/SecureImageViewer'
+import SecureVideoViewer from '../dialogs/SecureVideoViewer'
 
 import type { OpenDialog } from '../../contexts/DialogContext'
 import { C, type T } from '@deltachat/jsonrpc-client'
@@ -114,11 +117,34 @@ export async function openAttachmentInShell(msg: Type.Message) {
       }
     }
   }
+  
+  // Check if the decrypted file is a supported media type and use secure viewer
+  const fileExtension = extname(filePathName).toLowerCase()
+  const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+  const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
+  
+  if (fileExtension === '.pdf') {
+    // For PDFs, we'll use the secure viewer dialog instead of opening in external app
+    // This ensures the PDF data stays within the application
+    log.info('Opening PDF in secure viewer', { filePath: filePathName, fileName: msg.fileName })
+    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'pdf' }
+  } else if (supportedImageExtensions.includes(fileExtension)) {
+    // For images, use the secure image viewer
+    log.info('Opening image in secure viewer', { filePath: filePathName, fileName: msg.fileName })
+    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'image' }
+  } else if (supportedVideoExtensions.includes(fileExtension)) {
+    // For videos, use the secure video viewer
+    log.info('Opening video in secure viewer', { filePath: filePathName, fileName: msg.fileName })
+    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'video' }
+  }
+  
+  // For non-PDF files, use the original behavior
   if (!runtime.openPath(filePathName)) {
     log.info(
       "file couldn't be opened, try saving it in a different place and try to open it from there"
     )
   }
+  return { useSecureViewer: false }
 }
 
 const privittyForwardable = async (message: T.Message): Promise<boolean> => {
@@ -391,6 +417,32 @@ export function confirmDeleteMessage(
 
 export function openMessageInfo(openDialog: OpenDialog, message: Type.Message) {
   openDialog(MessageDetail, { id: message.id })
+}
+
+export function openSecurePDFViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+  openDialog(SecurePDFViewer, { filePath, fileName })
+}
+
+export function openSecureImageViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+  openDialog(SecureImageViewer, { filePath, fileName })
+}
+
+export function openSecureVideoViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+  openDialog(SecureVideoViewer, { filePath, fileName })
+}
+
+export function openSecureViewer(openDialog: OpenDialog, filePath: string, fileName: string, viewerType: 'pdf' | 'image' | 'video') {
+  switch (viewerType) {
+    case 'pdf':
+      openSecurePDFViewer(openDialog, filePath, fileName)
+      break
+    case 'image':
+      openSecureImageViewer(openDialog, filePath, fileName)
+      break
+    case 'video':
+      openSecureVideoViewer(openDialog, filePath, fileName)
+      break
+  }
 }
 
 export function setQuoteInDraft(messageId: number) {

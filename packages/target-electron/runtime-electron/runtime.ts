@@ -357,7 +357,9 @@ class ElectronRuntime implements Runtime {
      * Since Window paths have backslashes these will be encoded to %5C but since the browser on windows
      * does not decode them back we have to decode those before passing the path to the browser
      */
-    const a = encodeURI(`file://${sticker_path}`)
+    // Ensure proper file URL format for macOS
+    const fileUrl = sticker_path.startsWith('/') ? `file://${sticker_path}` : `file:///${sticker_path}`
+    const a = encodeURI(fileUrl)
     return a
       .replace(/[?#]/g, encodeURIComponent) // special case # and ? are not encoded by encodeURI but "ignored" in URLs
       .replace(/%5C/g, decodeURIComponent) // restore encoded backslashes (for Windows)

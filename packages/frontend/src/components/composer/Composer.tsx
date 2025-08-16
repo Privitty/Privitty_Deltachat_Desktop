@@ -202,6 +202,8 @@ const Composer = forwardRef<
     })
   }, [accountId])
 
+
+
   const composerSendMessage = messageEditing.isEditingModeActive
     ? null
     : async () => {
@@ -919,6 +921,20 @@ export function useDraft(
   }, [inputRef, saveDraft])
 
   const removeFile = useCallback(async () => {
+    // If there's an encrypted file in the draft, delete it when removing
+    const { sharedData } = useSharedData()
+    if (draftRef.current.file && sharedData?.FileDirectory) {
+      try {
+        await runtime.PrivittySendMessage('deleteFile', {
+          filePath: dirname(sharedData.FileDirectory),
+          fileName: basename(sharedData.FileDirectory),
+        })
+        console.log('Encrypted file deleted when removing from draft:', sharedData.FileDirectory)
+      } catch (error) {
+        console.error('Failed to delete encrypted file when removing from draft:', error)
+      }
+    }
+    
     draftRef.current.file = ''
     draftRef.current.viewType = 'Text'
     saveDraft()

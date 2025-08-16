@@ -68,3 +68,6 @@
 
 // Re-usable generic UI components
 @use 'components/_radios';
+@use 'components/_secure-pdf-viewer';
+@use 'components/_secure-image-viewer';
+@use 'components/_secure-video-viewer';

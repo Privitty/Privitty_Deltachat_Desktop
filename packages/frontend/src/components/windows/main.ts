@@ -72,6 +72,16 @@ export function init(options: { hidden: boolean }) {
     })
   ))
   mainWindow.filePathWhiteList = []
+  
+  // Add PDF.js worker file to whitelist
+  const workerPath = join(htmlDistDir(), 'pdf.worker.min.mjs')
+  mainWindow.filePathWhiteList.push(workerPath)
+  
+  // Add accounts tmp directory to whitelist for decrypted files
+  const accountsPath = getAccountsPath()
+  const tmpDirPath = join(accountsPath, 'tmp')
+  mainWindow.filePathWhiteList.push(tmpDirPath)
+  log.info('Added tmp directory to whitelist', { tmpDirPath })
 
   initMinWinDimensionHandling(mainWindow, defaults.minWidth, defaults.minHeight)
 
@@ -173,11 +183,28 @@ export function init(options: { hidden: boolean }) {
   )
 
   window.webContents.session.webRequest.onBeforeRequest(
-    { urls: ['file://*'] },
+    { urls: ['file:///*'] },
     (details, callback) => {
-      const pathname = fileURLToPath(
-        decodeURIComponent(new URL(details.url).href)
-      )
+      // Log the URL being processed for debugging
+      log.debug('Processing file URL request', details.url)
+      
+      // Additional logging for PDF files
+      if (details.url.includes('.pdf')) {
+        log.debug('PDF file access detected', { 
+          url: details.url,
+          pathname: details.url.replace('file://', '')
+        })
+      }
+      
+      let pathname: string
+      try {
+        pathname = fileURLToPath(
+          decodeURIComponent(new URL(details.url).href)
+        )
+      } catch (error) {
+        log.errorWithoutStackTrace('Invalid file URL detected', details.url, error)
+        return callback({ cancel: true })
+      }
 
       if (!isAbsolute(pathname) || pathname.includes('..')) {
         log.errorWithoutStackTrace('tried to access relative path', pathname)
@@ -193,6 +220,12 @@ export function init(options: { hidden: boolean }) {
             relativePathInAccount.startsWith(allowedPath)
           )
         ) {
+          return callback({ cancel: false })
+        }
+        
+        // Allow access to tmp directory files (for decrypted PDFs)
+        if (relativePathInAccount.includes('tmp/')) {
+          log.debug('Allowing access to tmp file', pathname)
           return callback({ cancel: false })
         }
       }
@@ -218,76 +251,7 @@ export function init(options: { hidden: boolean }) {
   )
 }
 
-import { screen, nativeImage } from 'electron'
-import path from 'path'
 
-let secureViewerWindow: BrowserWindow | null = null
-
-export function createSecureViewerWindow(filePath: string) {
-  if (secureViewerWindow) {
-    secureViewerWindow.focus()
-    return
-  }
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-
-  secureViewerWindow = new BrowserWindow({
-    width: Math.min(1200, width * 0.8),
-    height: Math.min(800, height * 0.8),
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-      preload: path.join(__dirname, 'secureViewerPreload.js'),
-    },
-    title: 'Secure Viewer',
-    icon: nativeImage.createFromPath(path.join(__dirname, 'assets/icon.png')),
-    autoHideMenuBar: true,
-    fullscreenable: false,
-    resizable: false,
-    frame: false,
-    backgroundColor: '#1E1E1E',
-  })
-
-  // Security measures
-  secureViewerWindow.setContentProtection(true) // Prevent screenshots/screen capture
-  secureViewerWindow.setMenu(null) // Remove menu
-
-  // Load the viewer page with the file path
-  secureViewerWindow.loadURL(
-    `file://${path.join(__dirname, '../secure-viewer/index.html')}?file=${encodeURIComponent(filePath)}`
-  )
-
-  secureViewerWindow.on('closed', () => {
-    secureViewerWindow = null
-  })
-
-  secureViewerWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-  callback({
-    responseHeaders: {
-      ...details.responseHeaders,
-      'Content-Security-Policy': [
-        "default-src 'none'; " +
-        "script-src 'self'; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; " +
-        "media-src 'self' data:; " +
-        "frame-src 'none'; " +
-        "connect-src 'self'"
-      ],
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block'
-    }
-  });
-});
-
-secureViewerWindow.webContents.on('context-menu', (e) => {
-  e.preventDefault();
-});
-
-}
 
 
 
