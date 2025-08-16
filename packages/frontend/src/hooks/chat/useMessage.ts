@@ -174,6 +174,19 @@ export default function useMessage() {
           ""
         )
 
+        // Now that the message has been sent successfully, we can safely delete the encrypted file
+        if (message.file && sharedData?.FileDirectory) {
+          try {
+            await runtime.PrivittySendMessage('deleteFile', {
+              filePath: dirname(sharedData.FileDirectory),
+              fileName: basename(sharedData.FileDirectory),
+            })
+            console.log('Encrypted file deleted after successful sending:', sharedData.FileDirectory)
+          } catch (error) {
+            console.error('Failed to delete encrypted file after sending:', error)
+          }
+        }
+
         await runtime.PrivittySendMessage('setFileAttributes', {
           chatId: chatId,
           prvFilename: sharedData?.FileDirectory,

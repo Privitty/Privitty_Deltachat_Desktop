@@ -79,5 +79,80 @@
   },
   "need_to_be_logged_out": {
     "message": "Please log out first"
+  },
+  "loading_pdf": {
+    "message": "Loading PDF..."
+  },
+  "error_loading_pdf": {
+    "message": "Error Loading PDF"
+  },
+  "retry": {
+    "message": "Retry"
+  },
+  "page_info": {
+    "message": "Page %1$s of %2$s"
+  },
+  "previous_page": {
+    "message": "Previous Page"
+  },
+  "next_page": {
+    "message": "Next Page"
+  },
+  "zoom_out": {
+    "message": "Zoom Out"
+  },
+  "zoom_in": {
+    "message": "Zoom In"
+  },
+  "reset_zoom": {
+    "message": "Reset Zoom"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "secure_viewer_notice": {
+    "message": "Secure viewer - data stays within the application"
+  },
+  "first_page": {
+    "message": "First Page"
+  },
+  "last_page": {
+    "message": "Last Page"
+  },
+  "go_to_page": {
+    "message": "Go to Page"
+  },
+  "loading_page": {
+    "message": "Loading page..."
+  },
+  "loading_image": {
+    "message": "Loading image..."
+  },
+  "loading_video": {
+    "message": "Loading video..."
+  },
+  "error_loading_image": {
+    "message": "Error loading image"
+  },
+  "error_loading_video": {
+    "message": "Error loading video"
+  },
+  "play": {
+    "message": "Play"
+  },
+  "pause": {
+    "message": "Pause"
+  },
+  "mute": {
+    "message": "Mute"
+  },
+  "unmute": {
+    "message": "Unmute"
+  },
+  "volume": {
+    "message": "Volume"
+  },
+  "seek": {
+    "message": "Seek"
   }
 }

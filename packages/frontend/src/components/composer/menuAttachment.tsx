@@ -125,13 +125,10 @@ export default function MenuAttachment({
             allowedTime: fileAttribute.allowedTime,
             FileDirectory: fileName
           })
-      runtime.PrivittySendMessage(
-          'deleteFile',
-          {
-            filePath: dirname(fileName),
-            fileName: basename(fileName),
-          }
-        )
+      
+      // Don't delete the file immediately - it will be deleted after the message is sent
+      // The file is needed by the backend when the user actually sends the message
+      console.log('Encrypted file added to draft, will be deleted after sending:', fileName)
       
     } else if (files.length > 1) {
       confirmSendMultipleFiles(files, 'File')

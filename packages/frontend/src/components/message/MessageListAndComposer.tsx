@@ -51,11 +51,12 @@ export function getBackgroundImageStyle(
       const target = runtime.getRuntimeInfo().target
       switch (target) {
         case 'electron': {
-          style.backgroundImage = `url("file://${join(
-            runtime.getConfigPath(),
-            'background/',
-            filePath
-          )}")`
+          // On macOS, file URLs must have empty host or localhost
+          const configPath = runtime.getConfigPath()
+          const fullPath = join(configPath, 'background/', filePath)
+          // Ensure proper file URL format for macOS
+          const fileUrl = fullPath.startsWith('/') ? `file://${fullPath}` : `file:///${fullPath}`
+          style.backgroundImage = `url("${fileUrl}")`
           break
         }
         case 'tauri': {

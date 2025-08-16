@@ -5,6 +5,7 @@ import {
   openAttachmentInShell,
   onDownload,
   openWebxdc,
+  openSecureViewer,
 } from '../message/messageFunctions'
 import {
   isImage,
@@ -54,10 +55,31 @@ const contextMenuFactory = (
   const showCopyImage = message.viewType === 'Image'
   const tx = window.static_translate
   const { id: msgId, viewType } = message
+  
+  // Check if this is a supported media file (including .prv files that decrypt to supported formats)
+  const supportedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
+  const isSupportedMedia = message.fileName?.toLowerCase().endsWith('.prv') || 
+                          supportedExtensions.some(ext => message.fileName?.toLowerCase().endsWith(ext))
+  
   return [
     !hideOpenInShellTypes.includes(viewType) && {
       label: tx('open'),
-      action: openAttachmentInShell.bind(null, message),
+      action: async () => {
+        if (isSupportedMedia) {
+          try {
+            const result = await openAttachmentInShell(message)
+            if (result?.useSecureViewer) {
+              openSecureViewer(openDialog, result.filePath, result.fileName, result.viewerType)
+            }
+          } catch (error) {
+            console.error('Error opening media:', error)
+            // Fallback to regular opening if secure viewer fails
+            openAttachmentInShell(message)
+          }
+        } else {
+          openAttachmentInShell(message)
+        }
+      },
     },
     viewType === 'Webxdc' && {
       label: tx('start_app'),
@@ -115,6 +137,10 @@ const getMediaActions = (
   message: T.Message,
   accountId: number
 ) => {
+  // Check if this is a PDF file
+  const isPDF = message.fileName?.toLowerCase().endsWith('.pdf') || 
+               message.fileName?.toLowerCase().endsWith('.prv')
+  
   return {
     openContextMenu: makeContextMenu(
       contextMenuFactory.bind(
@@ -127,7 +153,22 @@ const getMediaActions = (
       openContextMenu
     ),
     downloadMedia: onDownload.bind(null, message),
-    openInShell: openAttachmentInShell.bind(null, message),
+    openInShell: async () => {
+      if (isSupportedMedia) {
+        try {
+          const result = await openAttachmentInShell(message)
+          if (result?.useSecureViewer) {
+            openSecureViewer(openDialog, result.filePath, result.fileName, result.viewerType)
+          }
+        } catch (error) {
+          console.error('Error opening media:', error)
+          // Fallback to regular opening if secure viewer fails
+          openAttachmentInShell(message)
+        }
+      } else {
+        openAttachmentInShell(message)
+      }
+    },
   }
 }
 

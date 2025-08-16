@@ -44,7 +44,7 @@ import { enterKeySendsKeyboardShortcuts } from '../KeyboardShortcutHint'
 import { AppPicker } from '../AppPicker'
 import { AppInfo, AppStoreUrl } from '../AppPicker'
 import OutsideClickHelper from '../OutsideClickHelper'
-import { basename } from 'path'
+import { basename, dirname } from 'path'
 
 import { useHasChanged2 } from '../../hooks/useHasChanged'
 import { ScreenContext } from '../../contexts/ScreenContext'
@@ -201,6 +201,8 @@ const Composer = forwardRef<
       }
     })
   }, [accountId])
+
+
 
   const composerSendMessage = messageEditing.isEditingModeActive
     ? null
@@ -912,6 +914,20 @@ export function useDraft(
   }, [inputRef, saveDraft])
 
   const removeFile = useCallback(async () => {
+    // If there's an encrypted file in the draft, delete it when removing
+    const { sharedData } = useSharedData()
+    if (draftRef.current.file && sharedData?.FileDirectory) {
+      try {
+        await runtime.PrivittySendMessage('deleteFile', {
+          filePath: dirname(sharedData.FileDirectory),
+          fileName: basename(sharedData.FileDirectory),
+        })
+        console.log('Encrypted file deleted when removing from draft:', sharedData.FileDirectory)
+      } catch (error) {
+        console.error('Failed to delete encrypted file when removing from draft:', error)
+      }
+    }
+    
     draftRef.current.file = ''
     draftRef.current.viewType = 'Text'
     saveDraft()
