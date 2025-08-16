@@ -148,22 +148,6 @@ export default function useMessage() {
       console.log('filePathName:', message.file)
       let msgId = 0
       if (message.file && message.filename) {
-        
-       // await BackendRemote.rpc.removeDraft(accountId, chatId)
-
-        // await BackendRemote.rpc.miscSetDraft(
-        //   accountId,
-        //   chatId,
-        //   '',
-        //   fileName ?? null,
-        //   fileName ?? null,
-        //   null,
-        //   'File'
-        // )
-       // const msg = await BackendRemote.rpc.getDraft(accountId, chatId)
-
-       // message.file = msg?.file
-
         msgId = await BackendRemote.rpc.sendMsgWithSubject(
           accountId,
           chatId,
@@ -171,7 +155,7 @@ export default function useMessage() {
             ...MESSAGE_DEFAULT,
             ...message,
           },
-          ""
+          ''
         )
 
         await runtime.PrivittySendMessage('setFileAttributes', {
@@ -193,33 +177,37 @@ export default function useMessage() {
         if (jsonresp?.message_type === PRV_APP_STATUS_PEER_OTSP_SPLITKEYS) {
           log.info('need to send otsp message:')
           const subject = "{'privitty':'true', 'type':'OTSP_SENT'}"
-        
-        const base64Msg = btoa(String.fromCharCode.apply(null, jsonresp.pdu))
-        const MESSAGE_DEFAULT: T.MessageData = {
-          file: null,
-          filename: null,
-          viewtype: null,
-          html: null,
-          location: null,
-          overrideSenderName: null,
-          quotedMessageId: null,
-          quotedText: null,
-          text: null,
+
+          const base64Msg = btoa(String.fromCharCode.apply(null, jsonresp.pdu))
+          const MESSAGE_DEFAULT: T.MessageData = {
+            file: null,
+            filename: null,
+            viewtype: null,
+            html: null,
+            location: null,
+            overrideSenderName: null,
+            quotedMessageId: null,
+            quotedText: null,
+            text: null,
+          }
+          const message: Partial<T.MessageData> = {
+            text: base64Msg,
+            file: undefined,
+            filename: undefined,
+            quotedMessageId: null,
+            viewtype: 'Text',
+          }
+          BackendRemote.rpc.sendMsgWithSubject(
+            accountId,
+            chatId,
+            { ...MESSAGE_DEFAULT, ...message },
+            subject
+          )
         }
-        const message: Partial<T.MessageData> = {
-          text: base64Msg,
-          file: undefined,
-          filename: undefined,
-          quotedMessageId: null,
-          viewtype: 'Text',
-        }
-        BackendRemote.rpc.sendMsgWithSubject(
-          accountId,
-          chatId,
-          { ...MESSAGE_DEFAULT, ...message },
-          subject
-        )
-        }
+        await runtime.PrivittySendMessage('deleteFile', {
+          filePath: dirname(message.file),
+          fileName: basename(message.file),
+        })
       } else {
         msgId = await BackendRemote.rpc.sendMsg(accountId, chatId, {
           ...MESSAGE_DEFAULT,

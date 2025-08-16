@@ -44,7 +44,7 @@ import { enterKeySendsKeyboardShortcuts } from '../KeyboardShortcutHint'
 import { AppPicker } from '../AppPicker'
 import { AppInfo, AppStoreUrl } from '../AppPicker'
 import OutsideClickHelper from '../OutsideClickHelper'
-import { basename } from 'path'
+import { basename,dirname } from 'path'
 
 import { useHasChanged2 } from '../../hooks/useHasChanged'
 import { ScreenContext } from '../../contexts/ScreenContext'
@@ -862,6 +862,13 @@ export function useDraft(
         draft.viewType
       )
     } else {
+      if(draft.file && draft.file !== '') {
+        let filePathName = draft.file.replace(/\\/g, '/')
+         runtime.PrivittySendMessage('deleteFile', {
+        filePath: dirname(filePathName),
+        fileName: basename(filePathName),
+      })
+      }
       await BackendRemote.rpc.removeDraft(accountId, chatId)
     }
 

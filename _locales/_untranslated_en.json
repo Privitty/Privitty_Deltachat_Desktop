@@ -79,5 +79,8 @@
   },
   "need_to_be_logged_out": {
     "message": "Please log out first"
+  },
+  "recall_message": {
+    "message": "Recall"
   }
 }

@@ -105,6 +105,12 @@ class BrowserRuntime implements Runtime {
       console.error('WebSocket error:', event)
     })
   }
+  PrivittyHandleMessage(response: String): Promise<void> {
+    throw new Error('Method not implemented.')
+  }
+  PrivittySendMessage(method: string, params: any): Promise<string> {
+    throw new Error('Method not implemented.')
+  }
   onDrop: DropListener | null = null
   setDropListener(onDrop: DropListener | null) {
     this.onDrop = onDrop

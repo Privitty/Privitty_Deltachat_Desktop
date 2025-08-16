@@ -20,6 +20,7 @@ type Props = {
   tabindexForInteractiveContents: -1 | 0
   viewType: T.Viewtype
   isSavedMessage: boolean
+  privittyStatus?: 'none'| 'active' | 'blocked' | 'requested' | 'unknown'
 }
 
 export default function MessageMetaData(props: Props) {
@@ -38,6 +39,7 @@ export default function MessageMetaData(props: Props) {
     tabindexForInteractiveContents,
     viewType,
     isSavedMessage,
+    privittyStatus,
   } = props
 
   return (
@@ -53,6 +55,13 @@ export default function MessageMetaData(props: Props) {
       {/* FYI the padlock doesn't need `aria-live`
       as we don't expect it to get removed. See
       https://github.com/deltachat/deltachat-desktop/pull/5023#discussion_r2059382983 */}
+      {privittyStatus != 'none' && privittyStatus != undefined && (
+        <div
+         aria-label='Privitty status'
+         aria-hidden={true}
+         className={classNames('privitty-status-icon', privittyStatus)}
+        />)}
+
       {padlock && (
         <div
           aria-label={tx('a11y_encryption_padlock')}

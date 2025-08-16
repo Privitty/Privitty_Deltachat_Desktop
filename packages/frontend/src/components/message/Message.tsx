@@ -1,5 +1,6 @@
 import React, {
   CSSProperties,
+  use,
   useCallback,
   useContext,
   useEffect,
@@ -61,6 +62,52 @@ import type { JumpToMessage } from '../../hooks/chat/useMessage'
 import { mouseEventToPosition } from '../../utils/mouseEventToPosition'
 import { useRovingTabindex } from '../../contexts/RovingTabindex'
 import { is } from 'immutable'
+import { show } from '../windows/main'
+
+type PrivittyStatus =
+  | 'none'
+  | 'active'
+  | 'unknown'
+  | 'blocked'
+  | 'requested'
+  | undefined
+
+async function getPrivittyMessageStatus(
+  message: T.Message
+): Promise<PrivittyStatus> {
+  let privittyStatus: PrivittyStatus = 'none'
+  if (message.file && message.fileName) {
+    if (message.isForwarded) {
+      const response = await runtime.PrivittySendMessage(
+        'getFileForwardAccessState',
+        {
+          chatId: message.chatId,
+          fileName: message.file,
+          outgoing: message.fromId === C.DC_CONTACT_ID_SELF,
+        }
+      )
+      try {
+        const jsonrespstr = JSON.parse(response)
+        privittyStatus = JSON.parse(jsonrespstr?.result).fileAccessState
+      } catch (e) {
+        console.error('Error parsing response:', e)
+      }
+    } else {
+      const response = await runtime.PrivittySendMessage('getFileAccessState', {
+        chatId: message.chatId,
+        fileName: message.fileName,
+        outgoing: message.fromId != C.DC_CONTACT_ID_SELF,
+      })
+      try {
+        const jsonrespstr = JSON.parse(response)
+        privittyStatus = JSON.parse(jsonrespstr?.result).fileAccessState
+      } catch (e) {
+        console.error('Error parsing response:', e)
+      }
+    }
+  }
+  return Promise.resolve(privittyStatus)
+}
 
 interface CssWithAvatarColor extends CSSProperties {
   '--local-avatar-color': string
@@ -200,8 +247,70 @@ const ForwardedTitle = ({
   )
 }
 
+async function showFileRecall(message: T.Message): Promise<boolean> {
+  if (
+    message.file &&
+    message.fileName &&
+    message.fromId === C.DC_CONTACT_ID_SELF &&
+    !message.isForwarded
+  ) {
+    const response = await runtime.PrivittySendMessage('getFileAccessState', {
+      chatId: message.chatId,
+      fileName: message.fileName,
+      outgoing: true,
+    })
+    const jsonrespstr = JSON.parse(response)
+    const jsonresp = JSON.parse(jsonrespstr?.result)
+    if (jsonresp?.fileAccessState === 'active') {
+      console.log('file can be recalled')
+      return Promise.resolve(true)
+    } else {
+      console.log('file cannot be recalled:')
+    }
+    return Promise.resolve(false)
+  } else {
+    return Promise.resolve(false)
+  }
+}
 
-function buildContextMenu(
+async function showFileForward(message: T.Message): Promise<boolean> {
+  if (message.file && message.fileName) {
+    if (message.fromId === C.DC_CONTACT_ID_SELF) {
+      const response = await runtime.PrivittySendMessage('getFileAccessState', {
+        chatId: message.chatId,
+        fileName: message.fileName,
+        outgoing: true,
+      })
+      const jsonrespstr = JSON.parse(response)
+      const jsonresp = JSON.parse(jsonrespstr?.result)
+      if (jsonresp?.fileAccessState === 'active') {
+        console.log('file can be forwarded')
+        return Promise.resolve(true)
+      } else {
+        console.log('file cannot be forwarded:')
+      }
+    } else {
+      const response = await runtime.PrivittySendMessage('canForwardFile', {
+        chatId: message.chatId,
+        fileName: message.fileName,
+        outgoing: message.fromId === C.DC_CONTACT_ID_SELF ? true : false,
+      })
+      const jsonrespstr = JSON.parse(response)
+      const jsonresp = JSON.parse(jsonrespstr?.result)
+      if (jsonresp?.status === 'true') {
+        console.log('file can be forwarded')
+        return Promise.resolve(true)
+      } else {
+        console.log('file cannot be forwarded:')
+      }
+    }
+    return Promise.resolve(false)
+  } else {
+    return Promise.resolve(true)
+  }
+}
+
+async function buildContextMenu(
   {
     accountId,
     message,
@@ -224,7 +333,7 @@ function buildContextMenu(
     jumpToMessage: JumpToMessage
   },
   clickTarget: HTMLAnchorElement | null
-): (false | ContextMenuItem)[] {
+): Promise<(false | ContextMenuItem)[]> {
   const tx = window.static_translate // don't use the i18n context here for now as this component is inefficient (rendered one menu for every message)
   if (!message) {
     throw new Error('cannot show context menu for undefined message')
@@ -257,7 +366,6 @@ function buildContextMenu(
     },
   }
 
-  
   if (textSelected) {
     copy_item = {
       label: tx('menu_copy_selection_to_clipboard'),
@@ -293,14 +401,15 @@ function buildContextMenu(
 
   // Do not show "react" for system messages
   const showSendReaction = showReactionsUi(message, chat)
-
+  const showForward: boolean = await showFileForward(message)
+  const showRecallMsg: boolean = await showFileRecall(message)
   // Only show in groups, don't show on info messages or outgoing messages
   const showReplyPrivately =
     (conversationType.chatType === C.DC_CHAT_TYPE_GROUP ||
       conversationType.chatType === C.DC_CHAT_TYPE_MAILINGLIST) &&
     message.fromId > C.DC_CONTACT_ID_LAST_SPECIAL
 
-  return [
+  return Promise.resolve([
     // Reply
     showReply && {
       label: tx('notify_reply_button'),
@@ -314,9 +423,19 @@ function buildContextMenu(
       },
     },
     // Forward message
-    {
+    showForward && {
       label: tx('forward'),
       action: openForwardDialog.bind(null, openDialog, message),
+    },
+    // Recall message
+    showRecallMsg && {
+      label: tx('recall_message'),
+      action: () => {
+        runtime.PrivittySendMessage('revokeMsg', {
+          chatId: chat?.id,
+          fileName: message?.fileName,
+        })
+      },
     },
     // Send emoji reaction
     showSendReaction && {
@@ -377,6 +496,7 @@ function buildContextMenu(
       },
     // Open Attachment
     showAttachmentOptions &&
+      showRecallMsg &&
       message.viewType !== 'Webxdc' &&
       isGenericAttachment(message.fileMime) && {
         label: tx('open_attachment'),
@@ -393,12 +513,13 @@ function buildContextMenu(
         ),
     },
     // Resend Message
-    showResend && {
-      label: tx('resend'),
-      action: () => {
-        BackendRemote.rpc.resendMessages(selectedAccountId(), [message.id])
+    showResend &&
+      showRecallMsg && {
+        label: tx('resend'),
+        action: () => {
+          BackendRemote.rpc.resendMessages(selectedAccountId(), [message.id])
+        },
       },
-    },
     // Webxdc Info message: jump to app message
     Boolean(isWebxdcInfo && message.parentId) && {
       label: tx('show_app_in_chat'),
@@ -436,7 +557,7 @@ function buildContextMenu(
         chat
       ),
     },
-  ]
+  ])
 }
 
 function getPrivittyReplacementText(message: T.Message): string {
@@ -459,14 +580,14 @@ function getPrivittyReplacementText(message: T.Message): string {
     } else if (message.subject.indexOf('forward_add_request') !== -1) {
       message.text = 'A file has been forwarded to you.'
     } else if (message.subject.indexOf('OTSP_SENT') !== -1) {
-      message.text = 'You granted 15 mins viewing access.'
+      message.text = 'You granted viewing access.'
     } else if (
       message.subject.indexOf('SPLITKEYS_REQUEST') !== -1 ||
       message.subject.indexOf('SPLITKEYS_REQUESTING') !== -1
     ) {
       message.text = 'Requesting access from the owner ...'
     } else if (message.subject.indexOf('SPLITKEYS_RESPONSE') !== -1) {
-      message.text = 'Granted access for next 15 mins.'
+      message.text = 'Granted access.'
     } else if (message.subject.indexOf('SPLITKEYS_REVOKED') !== -1) {
       message.text = 'You revoked access'
     } else if (message.subject.indexOf('SPLITKEYS_DELETED') !== -1) {
@@ -490,6 +611,14 @@ export default function Message(props: {
   conversationType: ConversationType
 }) {
   const { message, conversationType } = props
+  const [privittyFileStatus, setPrivittyStatus] = useState<PrivittyStatus>('none')
+  useEffect(() => {
+    ;(async () => {
+      const result = await getPrivittyMessageStatus(message)
+      setPrivittyStatus(result)
+    })()
+  })
+  
   const { id, viewType, text, hasLocation, hasHtml } = message
   const direction = getDirection(message)
   const status = mapCoreMsgStatus2String(message.state)
@@ -550,7 +679,7 @@ export default function Message(props: {
 
       // the event.t is a workaround for labled links, as they will be able to contain markdown formatting in the label in the future.
       const target = ((event as any).t || event.target) as HTMLAnchorElement
-      const items = buildContextMenu(
+      const items = await buildContextMenu(
         {
           accountId,
           message,
@@ -622,6 +751,7 @@ export default function Message(props: {
     },
     onFocus: rovingTabindex.setAsActiveElement,
   }
+
   // When the message is not the active one
   // `rovingTabindex.tabIndex === -1`, we need to set `tabindex="-1"`
   // to all its interactive (otherwise "Tabbable to") elements,
@@ -633,9 +763,10 @@ export default function Message(props: {
   // The implementation is similar to the "Grid" pattern:
   // https://www.w3.org/WAI/ARIA/apg/patterns/grid/#gridNav_inside
   const tabindexForInteractiveContents = rovingTabindex.tabIndex
-
+  
   const messageContainerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    
     const resizeHandler = () => {
       if (messageContainerRef.current) {
         let messageWidth = 0
@@ -998,6 +1129,7 @@ export default function Message(props: {
               onClickError={openMessageInfo.bind(null, openDialog, message)}
               viewType={message.viewType}
               tabindexForInteractiveContents={tabindexForInteractiveContents}
+              privittyStatus={privittyFileStatus}
             />
             <div
               // TODO the "+1" count aria-live announcment is perhaps not great
