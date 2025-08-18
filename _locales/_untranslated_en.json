@@ -157,5 +157,8 @@
   },
   "seek": {
     "message": "Seek"
+  },
+    "recall_message": {
+    "message": "Recall"
   }
 }

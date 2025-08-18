@@ -30,7 +30,6 @@ import {
 import { useSharedData } from '../../contexts/FileAttribContext'
 //import { set } from 'immutable'
 
-
 type Props = {
   addFileToDraft: (file: string, fileName: string, viewType: T.Viewtype) => void
   showAppPicker: (show: boolean) => void
@@ -105,19 +104,19 @@ export default function MenuAttachment({
       setLastPath(dirname(files[0]))
       let filePathName = files[0].replace(/\\/g, '/')
       let encryptedFile: string = await runtime.PrivittySendMessage(
-        'encryptFile',
-        {
-          chatId: selectedChat?.id || 0,
-          filePath: dirname(filePathName),
-          fileName: basename(filePathName),
-          deleteInputFile: false,
-        }
-      )
-      console.log('encryptedFile:', encryptedFile)
-      let data = JSON.parse(encryptedFile)
-      console.log('result[0]:', data.result)
-      let fileName = JSON.parse(data.result).encryptedFile
-      console.log('parsed filename:', fileName)
+          'encryptFile',
+          {
+            chatId: selectedChat?.id || 0,
+            filePath: dirname(filePathName),
+            fileName: basename(filePathName),
+            deleteInputFile: false,
+          }
+        )
+        console.log('encryptedFile:', encryptedFile)
+        let data = JSON.parse(encryptedFile)
+        console.log('result[0]:', data.result)
+        let fileName = JSON.parse(data.result).encryptedFile
+        console.log('parsed filename:', fileName)
 
       addFileToDraft(fileName, basename(fileName), 'File')
       setSharedData({
@@ -158,8 +157,8 @@ export default function MenuAttachment({
           fileAttribute = selectedValue
           console.log('Selected value:', selectedValue)
         }
-        closeDialog(smallDialogID)
-        await addFilenameFileMod()
+        closeDialog(smallDialogID);
+        await addFilenameFileMod();
       },
       title: 'File Attributes',
       onClose: async (isConfirmed: boolean) => {
@@ -185,12 +184,12 @@ export default function MenuAttachment({
 
   const addFilenameFile = async () => {
     fileFilters = [
-      {
-        name: tx('file'),
-        extensions: ['*'],
-      },
-    ]
-    await openPrivittyProcess()
+        {
+          name: tx('file'),
+          extensions: ['*'],
+        },
+      ]
+   await openPrivittyProcess();
   }
 
   const addFilenameMedia = async () => {
@@ -199,13 +198,13 @@ export default function MenuAttachment({
       LastUsedSlot.Attachment
     )
     fileFilters = [
-      {
-        name: tx('image'),
-        extensions: IMAGE_EXTENSIONS,
-      },
-    ]
+        {
+          name: tx('image'),
+          extensions: IMAGE_EXTENSIONS,
+        },
+      ]
 
-    await openPrivittyProcess()
+       await openPrivittyProcess();
     // const files = await runtime.showOpenFileDialog({
     //   filters: [
     //     {
@@ -290,12 +289,12 @@ export default function MenuAttachment({
       label: tx('videochat'),
       action: onVideoChat,
     },
-    // {
-    //   icon: 'apps',
-    //   label: tx('webxdc_app'),
-    //   action: selectAppPicker.bind(null),
-    //   dataTestid: 'open-app-picker',
-    // },
+    //{
+    //  icon: 'apps',
+    //  label: tx('webxdc_app'),
+    //  action: selectAppPicker.bind(null),
+    //  dataTestid: 'open-app-picker',
+    //},
     {
       icon: 'upload-file',
       label: tx('file'),

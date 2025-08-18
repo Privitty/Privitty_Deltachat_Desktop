@@ -166,6 +166,12 @@ async function bundle(options) {
     'node_modules/@deltachat/message_parser_wasm/message_parser_wasm_bg.wasm',
     'html-dist/message_parser_wasm_bg.wasm'
   )
+
+  // Copy PDF.js worker file to ensure version compatibility
+  await copyFile(
+    'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+    'html-dist/pdf.worker.min.mjs'
+  )
 }
 
 /**

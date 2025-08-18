@@ -44,7 +44,32 @@ export async function openAttachmentInShell(msg: Type.Message) {
     log.error('message has no file to open:', msg)
     throw new Error('message has no file to open')
   }
-  const tmpFile = await runtime.copyFileToInternalTmpDir(msg.fileName, msg.file)
+  let tmpFile: string
+  try {
+    tmpFile = await runtime.copyFileToInternalTmpDir(msg.fileName, msg.file)
+    log.info('File copied to tmp dir', { originalFile: msg.file, tmpFile })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    log.error('Failed to copy file to temp directory', { 
+      originalFile: msg.file, 
+      fileName: msg.fileName, 
+      error: errorMessage 
+    })
+    
+    // Show user-friendly error message
+    runtime.showNotification({
+      title: 'File Error',
+      body: 'The file could not be opened because it is no longer available. It may have been deleted or moved.',
+      icon: null,
+      chatId: msg.chatId,
+      messageId: msg.id,
+      accountId: selectedAccountId(),
+      notificationType: 0,
+    })
+    
+    throw new Error('File is no longer available')
+  }
+  
   let filePathName = tmpFile
   if (extname(msg.fileName) === '.prv') {
     filePathName = tmpFile.replace(/\\/g, '/')
@@ -95,6 +120,16 @@ export async function openAttachmentInShell(msg: Type.Message) {
       console.log('canDownloadFile response :', fileAccessResponse)
       const parsedResponse = JSON.parse(fileAccessResponse)
       if (JSON.parse(parsedResponse?.result).fileAccessState != 'revoked') {
+        // Check if the decrypted file is a supported media type that should be opened in secure viewer
+        const decryptedFileExtension = extname(filePathName).toLowerCase()
+        const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+        const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
+        
+        if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
+          log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
+          // Return a special result to indicate this should be opened in secure viewer
+          throw new Error('PDF_DECRYPTED_NEEDS_SECURE_VIEWER')
+        }
         runtime.openPath(filePathName)
         return
       }
@@ -111,6 +146,16 @@ export async function openAttachmentInShell(msg: Type.Message) {
       console.log('canDownloadFile response :', fileAccessResponse)
       const parsedResponse = JSON.parse(fileAccessResponse)
       if (JSON.parse(parsedResponse?.result).status === 'false') {
+        // Check if the decrypted file is a supported media type that should be opened in secure viewer
+        const decryptedFileExtension = extname(filePathName).toLowerCase()
+        const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+        const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
+        
+        if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
+          log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
+          // Return a special result to indicate this should be opened in secure viewer
+          throw new Error('PDF_DECRYPTED_NEEDS_SECURE_VIEWER')
+        }
         //runtime.OpenSecureViewer(filePathName, filePathName)
         runtime.openPath(filePathName)
         return
@@ -118,33 +163,14 @@ export async function openAttachmentInShell(msg: Type.Message) {
     }
   }
   
-  // Check if the decrypted file is a supported media type and use secure viewer
+  // For non-supported files, use the external app
   const fileExtension = extname(filePathName).toLowerCase()
-  const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
-  const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
-  
-  if (fileExtension === '.pdf') {
-    // For PDFs, we'll use the secure viewer dialog instead of opening in external app
-    // This ensures the PDF data stays within the application
-    log.info('Opening PDF in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'pdf' }
-  } else if (supportedImageExtensions.includes(fileExtension)) {
-    // For images, use the secure image viewer
-    log.info('Opening image in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'image' }
-  } else if (supportedVideoExtensions.includes(fileExtension)) {
-    // For videos, use the secure video viewer
-    log.info('Opening video in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'video' }
-  }
-  
-  // For non-PDF files, use the original behavior
+  log.info('Using external app for non-supported file type', { filePath: filePathName, fileName: msg.fileName, fileExtension })
   if (!runtime.openPath(filePathName)) {
     log.info(
       "file couldn't be opened, try saving it in a different place and try to open it from there"
     )
   }
-  return { useSecureViewer: false }
 }
 
 const privittyForwardable = async (message: T.Message): Promise<boolean> => {
@@ -384,7 +410,6 @@ export async function confirmForwardMessage(
           quotedMessageId: null,
           viewtype: 'Text',
         }
-
         const msgId = await BackendRemote.rpc.sendMsgWithSubject(
           accountId,
           chat?.id || 0,

@@ -60,8 +60,8 @@ export default function MessageMetaData(props: Props) {
          aria-label='Privitty status'
          aria-hidden={true}
          className={classNames('privitty-status-icon', privittyStatus)}
-        />)}
-
+        />
+      )}
       {padlock && (
         <div
           aria-label={tx('a11y_encryption_padlock')}

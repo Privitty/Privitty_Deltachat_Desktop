@@ -44,7 +44,7 @@ import { enterKeySendsKeyboardShortcuts } from '../KeyboardShortcutHint'
 import { AppPicker } from '../AppPicker'
 import { AppInfo, AppStoreUrl } from '../AppPicker'
 import OutsideClickHelper from '../OutsideClickHelper'
-import { basename,dirname } from 'path'
+import { basename, dirname } from 'path'
 
 import { useHasChanged2 } from '../../hooks/useHasChanged'
 import { ScreenContext } from '../../contexts/ScreenContext'
@@ -864,12 +864,21 @@ export function useDraft(
         draft.viewType
       )
     } else {
+      // Only delete encrypted files when clearing draft
       if(draft.file && draft.file !== '') {
-        let filePathName = draft.file.replace(/\\/g, '/')
-         runtime.PrivittySendMessage('deleteFile', {
-        filePath: dirname(filePathName),
-        fileName: basename(filePathName),
-      })
+        // Check if this is an encrypted file that should be deleted
+        const { sharedData } = useSharedData()
+        if (sharedData?.FileDirectory && draft.file.includes(sharedData.FileDirectory)) {
+          try {
+            await runtime.PrivittySendMessage('deleteFile', {
+              filePath: dirname(sharedData.FileDirectory),
+              fileName: basename(sharedData.FileDirectory),
+            })
+            console.log('Encrypted file deleted when clearing draft:', sharedData.FileDirectory)
+          } catch (error) {
+            console.error('Failed to delete encrypted file when clearing draft:', error)
+          }
+        }
       }
       await BackendRemote.rpc.removeDraft(accountId, chatId)
     }
