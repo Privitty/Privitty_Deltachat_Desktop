@@ -17,15 +17,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v1
+    - uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.6.0
+    - name: Setup Node.js 20.x
+      uses: actions/setup-node@v4
       with:
         node-version: 20.x
-    - name: pnpm install
+        cache: 'pnpm'
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    - name: Set version info
+      shell: bash
       run: |
-        npm i -g pnpm
-        pnpm install --frozen-lockfile
+        echo "VERSION_INFO_GIT_REF=${{ github.sha }}-${{ github.ref_name }}" >> $GITHUB_ENV
     - name: Run all checks
       run: |
         pnpm check
@@ -34,15 +41,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v1
+    - uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.6.0
+    - name: Setup Node.js 20.x
+      uses: actions/setup-node@v4
       with:
         node-version: 20.x
-    - name: pnpm install
+        cache: 'pnpm'
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    - name: Set version info
+      shell: bash
       run: |
-        npm i -g pnpm
-        pnpm install --frozen-lockfile
+        echo "VERSION_INFO_GIT_REF=${{ github.sha }}-${{ github.ref_name }}" >> $GITHUB_ENV
     - name: Build
       run: pnpm build:electron
     - name: Run all checks

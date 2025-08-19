@@ -91,11 +91,21 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.6.0
+    - name: Setup Node.js 20.x
+      uses: actions/setup-node@v4
       with:
         node-version: 20.x
+        cache: 'pnpm'
     - name: Install dependencies
-      run: npm install -g pnpm && pnpm install
+      run: pnpm install --frozen-lockfile
+    - name: Set version info
+      shell: bash
+      run: |
+        echo "VERSION_INFO_GIT_REF=${{ github.sha }}-${{ github.ref_name }}" >> $GITHUB_ENV
     - name: Install Playwright Browsers
       working-directory: ./packages/e2e-tests
       run: npx playwright install --with-deps --only-shell chromium
