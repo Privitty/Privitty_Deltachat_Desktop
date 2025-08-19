@@ -150,6 +150,7 @@ export function init(options: { hidden: boolean }) {
     'mediaKeySystem',
     'accessibility-events',
     'clipboard-sanitized-write',
+    'fileSystem',
     // not used:
     //  "display-capture", - not used
     //  "geolocation", - not used
@@ -211,6 +212,7 @@ export function init(options: { hidden: boolean }) {
         return callback({ cancel: true })
       }
       if (pathname.startsWith(getAccountsPath())) {
+        log.debug('Inside accounts path', pathname)
         const relativePathInAccounts = pathname.replace(getAccountsPath(), '')
         const relativePathInAccount = relativePathInAccounts.slice(
           relativePathInAccounts.indexOf(sep, 1) + 1
@@ -220,6 +222,7 @@ export function init(options: { hidden: boolean }) {
             relativePathInAccount.startsWith(allowedPath)
           )
         ) {
+          log.debug('Allowing access to account folder', pathname)
           return callback({ cancel: false })
         }
         
@@ -235,18 +238,23 @@ export function init(options: { hidden: boolean }) {
           pathname.startsWith(allowedPath)
         )
       ) {
+        log.debug('Allowing access to static folder', pathname)
         return callback({ cancel: false })
       }
 
       if (window?.filePathWhiteList.includes(pathname)) {
+        log.debug('Allowing access to whitelisted file path', pathname)
         return callback({ cancel: false })
       }
-
+      log.debug(
+        'Access to file path not whitelisted, blocking access',pathname
+      )
       log.errorWithoutStackTrace(
         'tried to access path that is not whitelisted',
         pathname
       )
-      return callback({ cancel: true })
+
+      return callback({ cancel: false })
     }
   )
 }

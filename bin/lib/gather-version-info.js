@@ -19,9 +19,24 @@ async function getGitRef() {
     return process.env.VERSION_INFO_GIT_REF
   }
 
+  // In CI environments, use GitHub environment variables
+  if (process.env.GITHUB_SHA) {
+    const shortSha = process.env.GITHUB_SHA.substring(0, 7)
+    const ref = process.env.GITHUB_REF || 'main'
+    const branch = ref.split('/').pop() || 'main'
+    return `${shortSha}-${branch}`
+  }
+
   let git_describe, git_branch
   try {
-    git_describe = gatherProcessStdout('git', ['describe', '--tags'])
+    // Try to get git describe, but fallback to git rev-parse if no tags exist
+    try {
+      git_describe = gatherProcessStdout('git', ['describe', '--tags'])
+    } catch (err) {
+      // If no tags exist, use the short commit hash
+      git_describe = gatherProcessStdout('git', ['rev-parse', '--short', 'HEAD'])
+    }
+    
     try {
       const git_symbolic_ref =
         process.env.GITHUB_HEAD_REF ||
@@ -36,7 +51,8 @@ async function getGitRef() {
   } catch (err) {
     console.log(err)
     console.log('Hint: you can set the env var VERSION_INFO_GIT_REF manualy')
-    process.exit(1)
+    // Instead of exiting, provide a fallback
+    return 'unknown-commit'
   }
 
   const git_ref = git_describe + (git_branch === 'main' ? '' : '-' + git_branch)

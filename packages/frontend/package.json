@@ -6,7 +6,7 @@
   "scripts": {
     "check:types": "tsc --noEmit",
     "build": "pnpm build:ts && pnpm build:themes && pnpm build:static && pnpm build:source-map-support && pnpm build:scss && pnpm build:pdf-worker",
-    "build:pdf-worker": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs html-dist/pdf.worker.min.mjs && cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs static/pdf.worker.min.mjs",
+    "build:pdf-worker": "node ../../bin/filecopy.js node_modules/pdfjs-dist/build/pdf.worker.min.mjs html-dist/pdf.worker.min.mjs && node ../../bin/filecopy.js node_modules/pdfjs-dist/build/pdf.worker.min.mjs static/pdf.worker.min.mjs",
     "build:ts": "node ./bin/build-frontend-ts.mjs",
     "build:source-map-support": "node ./bin/build-frontend-source_map_support.js",
     "build:scss": "sass ./scss/manifest.scss ./html-dist/main.css --embed-source-map --style=compressed",
