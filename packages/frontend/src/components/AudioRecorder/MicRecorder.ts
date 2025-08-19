@@ -154,7 +154,7 @@ class MicRecorder {
       if (finalBuffer.length === 0) {
         reject(new Error('No buffer to send'))
       } else {
-        resolve([finalBuffer, new Blob(finalBuffer, { type: 'audio/mp3' })])
+        resolve([finalBuffer, new Blob(finalBuffer as BlobPart[], { type: 'audio/mp3' })])
         this.lameEncoder?.clearBuffer()
       }
     })

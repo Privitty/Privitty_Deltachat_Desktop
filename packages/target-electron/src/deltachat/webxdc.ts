@@ -913,7 +913,7 @@ async function webxdcProtocolHandler(
         )}, ${Number(open_apps[id].sendUpdateMaxSize)})
         window.webxdc = window.parent.webxdc
         window.webxdc_custom = window.parent.webxdc_custom`
-      ),
+      ) as any,
       {},
       mimeType
     )
@@ -927,7 +927,7 @@ async function webxdcProtocolHandler(
         ),
         'base64'
       )
-      return makeResponse(blob, {}, mimeType)
+      return makeResponse(blob as any, {}, mimeType)
     } catch (error) {
       log.error('webxdc: load blob:', error)
       return makeResponse('', { status: 404 })

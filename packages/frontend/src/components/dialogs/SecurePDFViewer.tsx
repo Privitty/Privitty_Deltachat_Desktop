@@ -190,7 +190,7 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
       
       // Render the page
       await page.render({
-        canvasContext: context,
+        canvasContext: context as any,
         viewport: viewport
       }).promise
       
