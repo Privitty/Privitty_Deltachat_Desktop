@@ -108,9 +108,9 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
           })
         } catch (blobError) {
           log.warn('Failed to set PDF.js worker blob URL', blobError)
-          // Final fallback to CDN
+          // Final fallback to CDN with matching version
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-          log.info('Using CDN fallback for PDF.js worker')
+          log.info('Using CDN fallback for PDF.js worker', { version: pdfjsLib.version })
         }
       }
       
@@ -159,6 +159,8 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
         setError('PDF.js library is not available. Please check your installation.')
       } else if (errorMessage.includes('worker')) {
         setError('PDF.js worker could not be loaded. Please check your internet connection.')
+      } else if (errorMessage.includes('API version') && errorMessage.includes('worker version')) {
+        setError('PDF.js version mismatch detected. Please restart the application to fix this issue.')
       } else if (errorMessage.includes('Invalid file path')) {
         setError('The PDF file path is invalid or the file does not exist.')
       } else {
@@ -336,34 +338,11 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
           </span>
         </div>
         
-        <div className='secure-pdf-viewer-controls'>
-          <div className='zoom-controls'>
-            <IconButton
-              icon='minus'
-              onClick={zoomOut}
-              disabled={scale <= 0.5}
-              aria-label={tx('zoom_out')}
-            />
-            <span className='zoom-level' title={tx('zoom_level')}>{Math.round(scale * 100)}%</span>
-            <IconButton
-              icon='plus'
-              onClick={zoomIn}
-              disabled={scale >= 3}
-              aria-label={tx('zoom_in')}
-            />
-            <IconButton
-              icon='rotate-right'
-              onClick={resetZoom}
-              aria-label={tx('reset_zoom')}
-            />
-          </div>
-          
-          <IconButton
-            icon='cross'
-            onClick={onClose}
-            aria-label={tx('close')}
-          />
-        </div>
+        <IconButton
+          icon='cross'
+          onClick={onClose}
+          aria-label={tx('close')}
+        />
       </div>
       
             <div className='secure-pdf-viewer-content'>
@@ -394,16 +373,44 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
             onDrop={(e) => e.preventDefault()}
           />
         </div>
-        
-        {/* Bottom pagination controls */}
-        <div className='bottom-pagination-controls'>
+      </div>
+      
+      {/* Combined controls - compact design */}
+      <div className='secure-pdf-viewer-controls-bar'>
+        <div className='controls-container'>
+          {/* Zoom controls */}
+          <div className='zoom-controls'>
+            <IconButton
+              icon='minus'
+              onClick={zoomOut}
+              disabled={scale <= 0.5}
+              aria-label={tx('zoom_out')}
+              size={20}
+            />
+            <span className='zoom-level'>{Math.round(scale * 100)}%</span>
+            <IconButton
+              icon='plus'
+              onClick={zoomIn}
+              disabled={scale >= 3}
+              aria-label={tx('zoom_in')}
+              size={20}
+            />
+            <IconButton
+              icon='rotate-right'
+              onClick={resetZoom}
+              aria-label={tx('reset_zoom')}
+              size={20}
+            />
+          </div>
+          
+          {/* Pagination controls */}
           <div className='pagination-controls'>
             <IconButton
               icon='chevron-left'
               onClick={goToFirstPage}
               disabled={currentPage <= 1}
               aria-label={tx('first_page')}
-              size={24}
+              size={20}
             />
             
             <IconButton
@@ -411,7 +418,7 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
               onClick={goToPreviousPage}
               disabled={currentPage <= 1}
               aria-label={tx('previous_page')}
-              size={24}
+              size={20}
             />
             
             <div className='page-input-container'>
@@ -438,7 +445,7 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
               onClick={goToNextPage}
               disabled={currentPage >= totalPages}
               aria-label={tx('next_page')}
-              size={24}
+              size={20}
             />
             
             <IconButton
@@ -446,7 +453,7 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
               onClick={goToLastPage}
               disabled={currentPage >= totalPages}
               aria-label={tx('last_page')}
-              size={24}
+              size={20}
             />
           </div>
         </div>

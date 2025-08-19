@@ -14,7 +14,29 @@ const PDFViewer: React.FC<{ filePath: string }> = ({ filePath }) => {
   useEffect(() => {
     const loadPDF = async () => {
       const pdfjsLib = require('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = window.pdfjsLib.workerSrc;
+      
+      // Set worker source to use the correct version
+      try {
+        // First, try to disable worker and use main thread
+        pdfjsLib.GlobalWorkerOptions.workerSrc = false;
+      } catch (error) {
+        // Fallback: try to use the local worker file
+        try {
+          const workerPath = 'pdf.worker.min.mjs';
+          const workerResponse = await fetch(workerPath);
+          if (workerResponse.ok) {
+            const workerBlob = await workerResponse.blob();
+            const workerBlobUrl = URL.createObjectURL(workerBlob);
+            pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
+          } else {
+            // Final fallback to CDN with matching version
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          }
+        } catch (blobError) {
+          // Final fallback to CDN with matching version
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        }
+      }
       
       const loadingTask = pdfjsLib.getDocument(filePath);
       const pdf: PDFDocumentProxy = await loadingTask.promise;

@@ -21,8 +21,9 @@ import FullscreenMedia, {
 import useTranslationFunction from '../../hooks/useTranslationFunction'
 import useDialog from '../../hooks/dialog/useDialog'
 import AudioPlayer from '../AudioPlayer'
-import { T } from '@deltachat/jsonrpc-client'
+import { T, C } from '@deltachat/jsonrpc-client'
 import { selectedAccountId } from '../../ScreenController'
+import { dirname, extname } from 'path'
 
 type AttachmentProps = {
   text?: string
@@ -56,18 +57,170 @@ export default function Attachment({
                               supportedExtensions.some(ext => message.fileName?.toLowerCase().endsWith(ext))
       
       if (isSupportedMedia) {
-        try {
-          const result = await openAttachmentInShell(message)
-          if (result?.useSecureViewer) {
-            openSecureViewer(openDialog, result.filePath, result.fileName, result.viewerType)
+        // Check if this is a supported media file that should be opened in secure viewer
+        const fileExtension = message.fileName?.toLowerCase().split('.').pop()
+        const supportedImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
+        const supportedVideoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v']
+        
+        if (fileExtension === 'pdf' || supportedImageExtensions.includes(fileExtension) || supportedVideoExtensions.includes(fileExtension)) {
+          try {
+            // For supported media files, we need to get the file path and open in secure viewer
+            let tmpFile: string
+            try {
+              tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
+            } catch (copyError) {
+              const errorMessage = copyError instanceof Error ? copyError.message : 'Unknown error'
+              console.error('Failed to copy media file to temp directory:', errorMessage)
+              
+              // Show user-friendly error message
+              runtime.showNotification({
+                title: 'Media File Error',
+                body: 'The media file could not be opened because it is no longer available. It may have been deleted or moved.',
+                icon: null,
+                chatId: message.chatId,
+                messageId: message.id,
+                accountId: selectedAccountId(),
+                notificationType: 0,
+              })
+              
+              // Fall back to regular opening
+              openAttachmentInShell(message)
+              return
+            }
+            
+            let filePathName = tmpFile
+            
+            // Handle .prv files (encrypted files)
+            if (message.fileName.toLowerCase().endsWith('.prv')) {
+              filePathName = tmpFile.replace(/\\/g, '/')
+              const response = await runtime.PrivittySendMessage('decryptFile', {
+                chatId: message.chatId,
+                filePath: dirname(filePathName),
+                fileName: message.fileName,
+                direction: message.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
+              })
+              filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
+              
+              if (filePathName === 'SPLITKEYS_EXPIRED' || filePathName === 'SPLITKEYS_REQUESTED') {
+                // Fall back to regular opening
+                openAttachmentInShell(message)
+                return
+              }
+            }
+            
+            // Determine the correct viewer type based on file extension
+            let viewerType: 'pdf' | 'image' | 'video' = 'pdf'
+            const finalFileExtension = extname(filePathName).toLowerCase()
+            
+            if (finalFileExtension === '.pdf') {
+              viewerType = 'pdf'
+            } else if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(finalFileExtension)) {
+              viewerType = 'image'
+            } else if (['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v'].includes(finalFileExtension)) {
+              viewerType = 'video'
+            }
+            
+            // Open in appropriate secure viewer
+            openSecureViewer(openDialog, filePathName, message.fileName, viewerType)
+          } catch (error) {
+            console.error('Error opening media in secure viewer:', error)
+            // Fallback to regular opening
+            openAttachmentInShell(message)
           }
-        } catch (error) {
-          console.error('Error opening media:', error)
-          // Fallback to regular opening if secure viewer fails
-          openAttachmentInShell(message)
+        } else {
+          // For non-PDF files, use the regular opening method
+          try {
+            await openAttachmentInShell(message)
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            if (errorMessage === 'PDF_DECRYPTED_NEEDS_SECURE_VIEWER') {
+              // This is a decrypted media file that needs to be opened in secure viewer
+              // We need to get the file path and open it in secure viewer
+              let tmpFile: string
+              try {
+                tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
+              } catch (copyError) {
+                console.error('Failed to copy PDF file to temp directory:', copyError)
+                return
+              }
+              
+              let filePathName = tmpFile
+              
+              // Handle .prv files (encrypted files)
+              if (message.fileName.toLowerCase().endsWith('.prv')) {
+                filePathName = tmpFile.replace(/\\/g, '/')
+                const response = await runtime.PrivittySendMessage('decryptFile', {
+                  chatId: message.chatId,
+                  filePath: dirname(filePathName),
+                  fileName: message.fileName,
+                  direction: message.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
+                })
+                filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
+                
+                if (filePathName === 'SPLITKEYS_EXPIRED' || filePathName === 'SPLITKEYS_REQUESTED') {
+                  return
+                }
+              }
+              
+              // Determine the correct viewer type based on file extension
+              let viewerType: 'pdf' | 'image' | 'video' = 'pdf'
+              const finalFileExtension = extname(filePathName).toLowerCase()
+              
+              if (finalFileExtension === '.pdf') {
+                viewerType = 'pdf'
+              } else if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(finalFileExtension)) {
+                viewerType = 'image'
+              } else if (['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v'].includes(finalFileExtension)) {
+                viewerType = 'video'
+              }
+              
+              // Open in appropriate secure viewer
+              openSecureViewer(openDialog, filePathName, message.fileName, viewerType)
+            } else {
+              console.error('Error opening file:', error)
+            }
+          }
         }
       } else {
-        openAttachmentInShell(message)
+        try {
+          await openAttachmentInShell(message)
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          if (errorMessage === 'PDF_DECRYPTED_NEEDS_SECURE_VIEWER') {
+            // This is a decrypted PDF that needs to be opened in secure viewer
+            // We need to get the file path and open it in secure viewer
+            let tmpFile: string
+            try {
+              tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
+            } catch (copyError) {
+              console.error('Failed to copy PDF file to temp directory:', copyError)
+              return
+            }
+            
+            let filePathName = tmpFile
+            
+            // Handle .prv files (encrypted files)
+            if (message.fileName.toLowerCase().endsWith('.prv')) {
+              filePathName = tmpFile.replace(/\\/g, '/')
+              const response = await runtime.PrivittySendMessage('decryptFile', {
+                chatId: message.chatId,
+                filePath: dirname(filePathName),
+                fileName: message.fileName,
+                direction: message.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
+              })
+              filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
+              
+              if (filePathName === 'SPLITKEYS_EXPIRED' || filePathName === 'SPLITKEYS_REQUESTED') {
+                return
+              }
+            }
+            
+            // Open PDF in secure viewer
+            openSecureViewer(openDialog, filePathName, message.fileName, 'pdf')
+          } else {
+            console.error('Error opening file:', error)
+          }
+        }
       }
     }
   }

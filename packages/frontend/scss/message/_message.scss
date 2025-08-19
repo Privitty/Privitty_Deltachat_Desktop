@@ -332,6 +332,7 @@
     .status-icon.delivered {
       background-color: var(--messageOutgoingStatusColor);
     }
+    
   }
   .metadata.with-image-no-caption > .status-icon {
     background-color: white;
@@ -401,7 +402,6 @@
       font-size: 11px;
       color: white;
     }
-
     .privitty-status-icon.active {
       @include mixins.color-svg('./images/active.svg', rgb(0, 0, 0), 125%);
     }

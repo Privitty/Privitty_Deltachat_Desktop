@@ -98,7 +98,7 @@ async function getPrivittyMessageStatus(
       const response = await runtime.PrivittySendMessage('getFileAccessState', {
         chatId: message.chatId,
         fileName: message.fileName,
-        outgoing: message.fromId === C.DC_CONTACT_ID_SELF,
+        outgoing: message.fromId === C.DC_CONTACT_ID_SELF
       })
       try {
         const jsonrespstr = JSON.parse(response)
@@ -368,6 +368,7 @@ async function buildContextMenu(
     },
   }
 
+  
   if (textSelected) {
     copy_item = {
       label: tx('menu_copy_selection_to_clipboard'),
@@ -405,13 +406,14 @@ async function buildContextMenu(
   const showSendReaction = showReactionsUi(message, chat)
   const showForward: boolean = await showFileForward(message)
   const showRecallMsg: boolean = await showFileRecall(message)
+
   // Only show in groups, don't show on info messages or outgoing messages
   const showReplyPrivately =
     (conversationType.chatType === C.DC_CHAT_TYPE_GROUP ||
       conversationType.chatType === C.DC_CHAT_TYPE_MAILINGLIST) &&
     message.fromId > C.DC_CONTACT_ID_LAST_SPECIAL
 
-  return Promise.resolve([
+    return Promise.resolve([
     // Reply
     showReply && {
       label: tx('notify_reply_button'),
@@ -498,7 +500,7 @@ async function buildContextMenu(
       },
     // Open Attachment
     showAttachmentOptions &&
-      showRecallMsg &&
+    showRecallMsg &&
       message.viewType !== 'Webxdc' &&
       isGenericAttachment(message.fileMime) && {
         label: tx('open_attachment'),
@@ -517,11 +519,11 @@ async function buildContextMenu(
     // Resend Message
     showResend &&
       showRecallMsg && {
-        label: tx('resend'),
-        action: () => {
-          BackendRemote.rpc.resendMessages(selectedAccountId(), [message.id])
-        },
+      label: tx('resend'),
+      action: () => {
+        BackendRemote.rpc.resendMessages(selectedAccountId(), [message.id])
       },
+    },
     // Webxdc Info message: jump to app message
     Boolean(isWebxdcInfo && message.parentId) && {
       label: tx('show_app_in_chat'),
@@ -754,7 +756,6 @@ export default function Message(props: {
     },
     onFocus: rovingTabindex.setAsActiveElement,
   }
-
   // When the message is not the active one
   // `rovingTabindex.tabIndex === -1`, we need to set `tabindex="-1"`
   // to all its interactive (otherwise "Tabbable to") elements,

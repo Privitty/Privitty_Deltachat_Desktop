@@ -190,7 +190,7 @@ export default function useMessage() {
         if (jsonresp?.message_type === PRV_APP_STATUS_PEER_OTSP_SPLITKEYS) {
           log.info('need to send otsp message:')
           const subject = "{'privitty':'true', 'type':'OTSP_SENT'}"
-
+        
           const base64Msg = btoa(String.fromCharCode.apply(null, jsonresp.pdu))
           const MESSAGE_DEFAULT: T.MessageData = {
             file: null,
@@ -217,10 +217,6 @@ export default function useMessage() {
             subject
           )
         }
-        await runtime.PrivittySendMessage('deleteFile', {
-          filePath: dirname(message.file),
-          fileName: basename(message.file),
-        })
       } else {
         msgId = await BackendRemote.rpc.sendMsg(accountId, chatId, {
           ...MESSAGE_DEFAULT,
