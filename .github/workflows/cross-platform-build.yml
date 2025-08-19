@@ -1,0 +1,88 @@
+name: Cross-Platform Build Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        target: [electron, browser]
+        exclude:
+          # Skip browser build on macOS for now (can be enabled later)
+          - os: macos-latest
+            target: browser
+      fail-fast: false
+    
+    name: Build ${{ matrix.target }} on ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.6.0
+        
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      
+    - name: Test cross-platform scripts
+      run: |
+        echo "🧪 Testing cross-platform compatibility..."
+        node bin/test-cross-platform.js
+        
+    - name: Test translation processing
+      run: |
+        echo "🔄 Testing translation processing..."
+        pnpm translations:convert
+        node bin/find_complete_translations.js
+        
+    - name: Build ${{ matrix.target }}
+      run: |
+        echo "🏗️ Building ${{ matrix.target }}..."
+        if [ "${{ matrix.target }}" = "electron" ]; then
+          pnpm build:electron
+        elif [ "${{ matrix.target }}" = "browser" ]; then
+          pnpm build:browser
+        fi
+        
+    - name: Verify build artifacts
+      run: |
+        echo "✅ Verifying build artifacts..."
+        if [ "${{ matrix.target }}" = "electron" ]; then
+          ls -la packages/target-electron/dist/ || echo "No dist directory found"
+        elif [ "${{ matrix.target }}" = "browser" ]; then
+          ls -la packages/target-browser/dist/ || echo "No dist directory found"
+        fi
+        
+    - name: Upload build artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ matrix.target }}-${{ matrix.os }}
+        path: |
+          packages/target-${{ matrix.target }}/dist/
+        retention-days: 7
+        
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ matrix.target }}-${{ matrix.os }}
+        path: |
+          packages/target-${{ matrix.target }}/node_modules/.cache/
+        retention-days: 1 

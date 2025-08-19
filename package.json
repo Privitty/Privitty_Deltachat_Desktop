@@ -25,13 +25,14 @@
     "dev:tauri": "pnpm --filter=@deltachat-desktop/target-tauri start",
     "translations:pull": "tx pull -s -f -t && tx pull -f -a",
     "translations:convert": "node ./bin/build-shared-convert-translations.mjs ./_locales",
-    "translations:update": "pnpm translations:pull && pnpm translations:convert && ./bin/find_complete_translations.sh",
+    "translations:update": "pnpm translations:pull && pnpm translations:convert && node ./bin/find_complete_translations.js",
     "update:target-versions": "node ./bin/update_desktop_version.js && prettier --write --log-level=silent \"packages/target**/package.json\"",
     "check:target-versions": "node ./bin/update_desktop_version.js --check",
     "test": "pnpm -r --no-bail test",
     "test-and-check": "pnpm test && pnpm check",
     "e2e": "pnpm build:browser && pnpm --filter=e2e-tests e2e",
-    "reset:node_modules": "rm -rf node_modules && rm -rf packages/*/node_modules || true && pnpm i"
+    "test:cross-platform": "node bin/test-cross-platform.js",
+    "reset:node_modules": "node -e \"const fs=require('fs');const path=require('path');function rmrf(dir){if(fs.existsSync(dir)){fs.readdirSync(dir).forEach(file=>{const curPath=path.join(dir,file);if(fs.lstatSync(curPath).isDirectory())rmrf(curPath);else fs.unlinkSync(curPath);});fs.rmdirSync(dir);}}try{rmrf('node_modules');}catch(e){}try{fs.readdirSync('packages').forEach(pkg=>{try{rmrf(path.join('packages',pkg,'node_modules'));}catch(e){}});}catch(e){}console.log('Cleaned node_modules directories');\" && pnpm i"
   },
   "engineStrict": true,
   "engines": {

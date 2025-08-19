@@ -30,7 +30,7 @@ const updatedContent = fileContent
 writeFileSync(filePath, updatedContent, 'utf8')
 
 execSync('pnpm i', { stdio: 'inherit' })
-execSync('./bin/link_core/link_catalog.sh', { stdio: 'inherit' })
+execSync('node ./bin/link_core/link_catalog.js', { stdio: 'inherit' })
 
 // cargo / tauri
 try {
