@@ -82,32 +82,34 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
       
       // Set worker source - try multiple approaches
       try {
-        // First, try to disable worker and use main thread
-        pdfjsLib.GlobalWorkerOptions.workerSrc = false
-        log.info('PDF.js worker disabled, using main thread')
-      } catch (error) {
-        log.warn('Failed to disable PDF.js worker', error)
+        // First, try to use the local worker file
+        const workerPath = 'pdf.worker.min.mjs'
+        log.info('Loading PDF.js worker file', { workerPath })
         
-        // Fallback: try blob URL approach
+        const workerResponse = await fetch(workerPath)
+        if (!workerResponse.ok) {
+          throw new Error(`Worker file not accessible: ${workerResponse.status}`)
+        }
+        
+        const workerBlob = await workerResponse.blob()
+        const workerBlobUrl = URL.createObjectURL(workerBlob)
+        
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl
+        log.info('PDF.js worker source set to blob URL', { 
+          workerBlobUrl,
+          blobSize: workerBlob.size 
+        })
+      } catch (blobError) {
+        log.warn('Failed to set PDF.js worker blob URL', blobError)
+        
+        // Fallback: try to disable worker and use main thread
         try {
-          const workerPath = 'pdf.worker.min.mjs'
-          log.info('Loading PDF.js worker file', { workerPath })
+          // Set workerSrc to null to disable worker (this is the correct way)
+          pdfjsLib.GlobalWorkerOptions.workerSrc = null
+          log.info('PDF.js worker disabled, using main thread')
+        } catch (disableError) {
+          log.warn('Failed to disable PDF.js worker', disableError)
           
-          const workerResponse = await fetch(workerPath)
-          if (!workerResponse.ok) {
-            throw new Error(`Worker file not accessible: ${workerResponse.status}`)
-          }
-          
-          const workerBlob = await workerResponse.blob()
-          const workerBlobUrl = URL.createObjectURL(workerBlob)
-          
-          pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl
-          log.info('PDF.js worker source set to blob URL', { 
-            workerBlobUrl,
-            blobSize: workerBlob.size 
-          })
-        } catch (blobError) {
-          log.warn('Failed to set PDF.js worker blob URL', blobError)
           // Final fallback to CDN with matching version
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
           log.info('Using CDN fallback for PDF.js worker', { version: pdfjsLib.version })
@@ -119,18 +121,31 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
         throw new Error('Invalid file path provided')
       }
       
+      // Ensure file path is properly formatted for the current platform
+      let normalizedFilePath = filePath
+      if (typeof window !== 'undefined' && window.process?.platform === 'win32') {
+        // On Windows, ensure the path uses forward slashes for file:// URLs
+        normalizedFilePath = filePath.replace(/\\/g, '/')
+        // Ensure the path starts with file:// protocol
+        if (!normalizedFilePath.startsWith('file://')) {
+          normalizedFilePath = `file:///${normalizedFilePath}`
+        }
+      }
+      
       // Load the PDF document
       log.info('Starting PDF load', { 
-        filePath, 
+        originalFilePath: filePath,
+        normalizedFilePath,
         workerSrc: pdfjsLib.GlobalWorkerOptions.workerSrc,
-        pdfjsVersion: pdfjsLib.version 
+        pdfjsVersion: pdfjsLib.version,
+        platform: typeof window !== 'undefined' ? window.process?.platform : 'unknown'
       })
       
       let loadingTask
       let pdfDoc
       
       try {
-        loadingTask = pdfjsLib.getDocument(filePath)
+        loadingTask = pdfjsLib.getDocument(normalizedFilePath)
         log.info('PDF loading task created successfully')
         
         pdfDoc = await loadingTask.promise

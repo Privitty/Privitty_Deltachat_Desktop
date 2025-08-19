@@ -192,7 +192,9 @@ export function init(options: { hidden: boolean }) {
       if (details.url.includes('.pdf')) {
         log.debug('PDF file access detected', { 
           url: details.url,
-          pathname: details.url.replace('file://', '')
+          pathname: details.url.replace('file://', ''),
+          method: details.method,
+          resourceType: details.resourceType
         })
       }
       
@@ -220,14 +222,17 @@ export function init(options: { hidden: boolean }) {
             relativePathInAccount.startsWith(allowedPath)
           )
         ) {
+          log.debug('Allowing access to account folder file', { pathname, relativePathInAccount })
           return callback({ cancel: false })
         }
         
         // Allow access to tmp directory files (for decrypted PDFs)
         if (relativePathInAccount.includes('tmp/')) {
-          log.debug('Allowing access to tmp file', pathname)
+          log.debug('Allowing access to tmp file', { pathname, relativePathInAccount })
           return callback({ cancel: false })
         }
+        
+        log.debug('File in accounts path but not in allowed folders', { pathname, relativePathInAccount })
       }
 
       if (
