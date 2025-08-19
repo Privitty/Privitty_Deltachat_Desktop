@@ -86,6 +86,30 @@
   "loading_pdf": {
     "message": "Loading PDF..."
   },
+  "privitty_settings": {
+    "message": "Privitty Settings"
+  },
+  "default_access_time": {
+    "message": "Default Access Time"
+  },
+  "privitty_access_notify": {
+    "message": "Notify on Access"
+  },
+  "privitty_access_notify_description": {
+    "message": "User is notified each time an access request is made"
+  },
+  "privitty_access_forward_notify": {
+    "message": "Notify on Forward Access"
+  },
+  "privitty_access_forward_notify_description": {
+    "message": "User is notified each time a forward access request is made"
+  },
+  "privitty_backup": {
+    "message": "Privitty Backup"
+  },
+  "privitty_restore": {
+    "message": "Privitty Restore"
+  },
   "error_loading_pdf": {
     "message": "Error Loading PDF"
   },

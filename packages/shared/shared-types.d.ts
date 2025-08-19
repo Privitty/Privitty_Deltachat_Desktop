@@ -69,6 +69,12 @@ export interface DesktopSettingsType {
   contentProtectionEnabled: boolean
   /** whether to start with system on supported platforms */
   autostart: boolean
+  /** Default Access Time */
+  privittyDefaultAccessTime: number
+  /** Notify user on Access Request */
+  privittyNotifyOnAccess: boolean
+  /** Notify user on Forward Access Request */
+  privittyNotifyOnForwardAccess: boolean
 }
 
 export interface RC_Config {

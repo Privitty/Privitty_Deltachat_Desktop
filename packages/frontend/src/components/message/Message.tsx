@@ -65,11 +65,13 @@ import { is } from 'immutable'
 import { show } from '../windows/main'
 
 type PrivittyStatus =
-  | 'none'
+  | 'invalid state'
   | 'active'
-  | 'unknown'
   | 'blocked'
   | 'requested'
+  | 'relay'
+  | 'none'
+  | 'revoked'
   | undefined
 
 async function getPrivittyMessageStatus(
@@ -96,7 +98,7 @@ async function getPrivittyMessageStatus(
       const response = await runtime.PrivittySendMessage('getFileAccessState', {
         chatId: message.chatId,
         fileName: message.fileName,
-        outgoing: message.fromId != C.DC_CONTACT_ID_SELF,
+        outgoing: message.fromId === C.DC_CONTACT_ID_SELF,
       })
       try {
         const jsonrespstr = JSON.parse(response)
@@ -433,7 +435,7 @@ async function buildContextMenu(
       action: () => {
         runtime.PrivittySendMessage('revokeMsg', {
           chatId: chat?.id,
-          fileName: message?.fileName,
+          fileName: message?.file,
         })
       },
     },
@@ -611,14 +613,15 @@ export default function Message(props: {
   conversationType: ConversationType
 }) {
   const { message, conversationType } = props
-  const [privittyFileStatus, setPrivittyStatus] = useState<PrivittyStatus>('none')
+  const [privittyFileStatus, setPrivittyStatus] =
+    useState<PrivittyStatus>('none')
   useEffect(() => {
     ;(async () => {
       const result = await getPrivittyMessageStatus(message)
       setPrivittyStatus(result)
     })()
   })
-  
+
   const { id, viewType, text, hasLocation, hasHtml } = message
   const direction = getDirection(message)
   const status = mapCoreMsgStatus2String(message.state)
@@ -763,10 +766,9 @@ export default function Message(props: {
   // The implementation is similar to the "Grid" pattern:
   // https://www.w3.org/WAI/ARIA/apg/patterns/grid/#gridNav_inside
   const tabindexForInteractiveContents = rovingTabindex.tabIndex
-  
+
   const messageContainerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    
     const resizeHandler = () => {
       if (messageContainerRef.current) {
         let messageWidth = 0
@@ -949,6 +951,7 @@ export default function Message(props: {
             onClickError={openMessageInfo.bind(null, openDialog, message)}
             viewType={'VideochatInvitation'}
             tabindexForInteractiveContents={tabindexForInteractiveContents}
+            privittyStatus='none'
           />
         </div>
       </div>

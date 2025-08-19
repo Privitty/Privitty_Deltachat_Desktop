@@ -21,15 +21,23 @@
     }
 
     .privitty-status-icon.active {
-      @include mixins.color-svg('./images/padlock.svg', white, 125%);
+      @include mixins.color-svg('./images/active.svg', rgb(0, 0, 0), 125%);
     }
 
     .privitty-status-icon.blocked {
-      @include mixins.color-svg('./images/verified-broken.svg', white, 125%);
+      @include mixins.color-svg('./images/blocked.svg', rgb(0, 0, 0), 125%);
+    }
+
+    .privitty-status-icon.revoked {
+      @include mixins.color-svg('./images/blocked.svg', rgb(0, 0, 0), 125%);
     }
 
     .privitty-status-icon.requested {
-      @include mixins.color-svg('./images/ic_scroll_down.png', white, 125%);
+      @include mixins.color-svg('./images/progress.png', rgb(0, 0, 0), 125%);
+    }
+
+    .privitty-status-icon.relay {
+      @include mixins.color-svg('./images/relay.png', rgb(0, 0, 0), 125%);
     }
 
     .padlock-icon {
@@ -78,6 +86,8 @@
   .privitty-status-icon.active,
   .privitty-status-icon.blocked,
   .privitty-status-icon.requested,
+  .privitty-status-icon.relay,
+  .privitty-status-icon.revoked,
   .padlock-icon,
   .location-icon,
   .saved-message-icon {

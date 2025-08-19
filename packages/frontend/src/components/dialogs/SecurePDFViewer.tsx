@@ -130,7 +130,11 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
       let pdfDoc
       
       try {
-        loadingTask = pdfjsLib.getDocument(filePath)
+        // Read the PDF file using your secure API
+      const fileData = await window.SecureApi.readFile(filePath)
+      const uint8Array = new Uint8Array(fileData)
+      const loadingTask = pdfjsLib.getDocument({ data: uint8Array })
+       // loadingTask = pdfjsLib.getDocument(filePath)
         log.info('PDF loading task created successfully')
         
         pdfDoc = await loadingTask.promise

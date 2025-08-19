@@ -20,7 +20,15 @@ type Props = {
   tabindexForInteractiveContents: -1 | 0
   viewType: T.Viewtype
   isSavedMessage: boolean
-  privittyStatus?: 'none'| 'active' | 'blocked' | 'requested' | 'unknown'
+  privittyStatus:
+    | 'invalid state'
+    | 'active'
+    | 'blocked'
+    | 'requested'
+    | 'relay'
+    | 'none'
+    | 'revoked'
+    | undefined
 }
 
 export default function MessageMetaData(props: Props) {
@@ -57,10 +65,11 @@ export default function MessageMetaData(props: Props) {
       https://github.com/deltachat/deltachat-desktop/pull/5023#discussion_r2059382983 */}
       {privittyStatus != 'none' && privittyStatus != undefined && (
         <div
-         aria-label='Privitty status'
-         aria-hidden={true}
-         className={classNames('privitty-status-icon', privittyStatus)}
-        />)}
+          aria-label='Privitty status'
+          aria-hidden={true}
+          className={classNames('privitty-status-icon', privittyStatus)}
+        />
+      )}
 
       {padlock && (
         <div

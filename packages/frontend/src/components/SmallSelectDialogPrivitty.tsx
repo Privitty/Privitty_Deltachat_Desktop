@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import  Checkbox from './Checkbox'
 import  TextField  from './Textbox' // Add this import if using MUI, or use your own Checkbox/TextField components
 import Dialog, {
@@ -14,6 +14,8 @@ import FooterActionButton from './Dialog/FooterActionButton'
 import useTranslationFunction from '../hooks/useTranslationFunction'
 
 import type { DialogProps } from '../contexts/DialogContext'
+import { useSettingsStore } from '../stores/settings'
+import { runtime } from '@deltachat-desktop/runtime-interface'
 
 export type SelectDialogOption = [value: string, label: string]
 
@@ -42,12 +44,18 @@ export default function SmallSelectDialogPrivitty({
   onCancel,
 }: Props) {
   const tx = useTranslationFunction()
-
+  const settingsStore = useSettingsStore()[0]!
   const [selectedValue, setActualSelectedValue] =
     useState<SelectedValue>(initialSelectedValue)
   const [allowDownload, setAllowDownload] = useState<boolean>(false)
   const [allowForward, setAllowForward] = useState<boolean>(false)
-  const [allowedTime, setAllowedTime] = useState<string>('') // keep as string for controlled input
+  const [allowedTime, setAllowedTime] = useState<string>("25") // keep as string for controlled input
+
+useEffect(() => {
+    runtime.getDesktopSettings().then((settings) => {
+      setAllowedTime(settings.privittyDefaultAccessTime.toString() || "25")})
+    }
+  )
 
   const onChange = (value: string) => {
     setAllowedTime(value)

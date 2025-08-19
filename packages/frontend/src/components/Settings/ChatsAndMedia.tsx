@@ -19,6 +19,7 @@ import useTranslationFunction from '../../hooks/useTranslationFunction'
 import useDialog from '../../hooks/dialog/useDialog'
 import UnblockContacts from '../dialogs/UnblockContacts'
 import SettingsButton from './SettingsButton'
+import PrivittyBackup from './PrivittyBackup'
 
 type Props = {
   settingsStore: SettingsStoreState
@@ -65,6 +66,9 @@ export default function ChatsAndMedia({
       <SettingsSeparator />
       <SettingsHeading>{tx('pref_backup')}</SettingsHeading>
       <Backup />
+      {/* <SettingsSeparator />
+      <SettingsHeading>{tx('privitty_backup')}</SettingsHeading>
+      <PrivittyBackup /> */}
     </>
   )
 }

@@ -63,8 +63,8 @@ export function init(options: { hidden: boolean }) {
         nodeIntegration: false,
         preload: defaults.preload,
         spellcheck: false, // until we can load a local dictionary, see https://github.com/electron/electron/issues/22995
-        webSecurity: true,
-        allowRunningInsecureContent: false,
+        webSecurity: false,
+        allowRunningInsecureContent: true,
         contextIsolation: false,
       },
       titleBarStyle: isMac ? 'hidden' : 'default',
@@ -192,7 +192,7 @@ export function init(options: { hidden: boolean }) {
       if (details.url.includes('.pdf')) {
         log.debug('PDF file access detected', { 
           url: details.url,
-          pathname: details.url.replace('file://', '')
+          pathname: details.url.replace('file:///', '')
         })
       }
       

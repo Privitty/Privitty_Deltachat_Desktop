@@ -83,7 +83,7 @@ export async function openAttachmentInShell(msg: Type.Message) {
     }
     if (msg.fromId === C.DC_CONTACT_ID_SELF) {
       // we will open the viewer if the file is not downloadable
-           //we will open the viewer if the file is not downloadable
+      //we will open the viewer if the file is not downloadable
       const fileAccessResponse = await runtime.PrivittySendMessage(
         'getFileAccessState',
         {
@@ -112,32 +112,72 @@ export async function openAttachmentInShell(msg: Type.Message) {
       const parsedResponse = JSON.parse(fileAccessResponse)
       if (JSON.parse(parsedResponse?.result).status === 'false') {
         //runtime.OpenSecureViewer(filePathName, filePathName)
-        runtime.openPath(filePathName)
-        return
+        //runtime.openPath(filePathName)
+        //return
+        // Check if the decrypted file is a supported media type and use secure viewer
+        const fileExtension = extname(filePathName).toLowerCase()
+        const supportedImageExtensions = [
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.gif',
+          '.bmp',
+          '.webp',
+          '.svg',
+        ]
+        const supportedVideoExtensions = [
+          '.mp4',
+          '.avi',
+          '.mov',
+          '.wmv',
+          '.flv',
+          '.webm',
+          '.mkv',
+          '.m4v',
+        ]
+
+        if (fileExtension === '.pdf') {
+          // For PDFs, we'll use the secure viewer dialog instead of opening in external app
+          // This ensures the PDF data stays within the application
+          log.info('Opening PDF in secure viewer', {
+            filePath: filePathName,
+            fileName: msg.fileName,
+          })
+          return {
+            useSecureViewer: true,
+            filePath: filePathName,
+            fileName: msg.fileName,
+            viewerType: 'pdf',
+          }
+        } else if (supportedImageExtensions.includes(fileExtension)) {
+          // For images, use the secure image viewer
+          log.info('Opening image in secure viewer', {
+            filePath: filePathName,
+            fileName: msg.fileName,
+          })
+          return {
+            useSecureViewer: true,
+            filePath: filePathName,
+            fileName: msg.fileName,
+            viewerType: 'image',
+          }
+        } else if (supportedVideoExtensions.includes(fileExtension)) {
+          // For videos, use the secure video viewer
+          log.info('Opening video in secure viewer', {
+            filePath: filePathName,
+            fileName: msg.fileName,
+          })
+          return {
+            useSecureViewer: true,
+            filePath: filePathName,
+            fileName: msg.fileName,
+            viewerType: 'video',
+          }
+        }
       }
     }
   }
-  
-  // Check if the decrypted file is a supported media type and use secure viewer
-  const fileExtension = extname(filePathName).toLowerCase()
-  const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
-  const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
-  
-  if (fileExtension === '.pdf') {
-    // For PDFs, we'll use the secure viewer dialog instead of opening in external app
-    // This ensures the PDF data stays within the application
-    log.info('Opening PDF in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'pdf' }
-  } else if (supportedImageExtensions.includes(fileExtension)) {
-    // For images, use the secure image viewer
-    log.info('Opening image in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'image' }
-  } else if (supportedVideoExtensions.includes(fileExtension)) {
-    // For videos, use the secure video viewer
-    log.info('Opening video in secure viewer', { filePath: filePathName, fileName: msg.fileName })
-    return { useSecureViewer: true, filePath: filePathName, fileName: msg.fileName, viewerType: 'video' }
-  }
-  
+
   // For non-PDF files, use the original behavior
   if (!runtime.openPath(filePathName)) {
     log.info(
@@ -419,19 +459,36 @@ export function openMessageInfo(openDialog: OpenDialog, message: Type.Message) {
   openDialog(MessageDetail, { id: message.id })
 }
 
-export function openSecurePDFViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+export function openSecurePDFViewer(
+  openDialog: OpenDialog,
+  filePath: string,
+  fileName: string
+) {
   openDialog(SecurePDFViewer, { filePath, fileName })
 }
 
-export function openSecureImageViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+export function openSecureImageViewer(
+  openDialog: OpenDialog,
+  filePath: string,
+  fileName: string
+) {
   openDialog(SecureImageViewer, { filePath, fileName })
 }
 
-export function openSecureVideoViewer(openDialog: OpenDialog, filePath: string, fileName: string) {
+export function openSecureVideoViewer(
+  openDialog: OpenDialog,
+  filePath: string,
+  fileName: string
+) {
   openDialog(SecureVideoViewer, { filePath, fileName })
 }
 
-export function openSecureViewer(openDialog: OpenDialog, filePath: string, fileName: string, viewerType: 'pdf' | 'image' | 'video') {
+export function openSecureViewer(
+  openDialog: OpenDialog,
+  filePath: string,
+  fileName: string,
+  viewerType: 'pdf' | 'image' | 'video'
+) {
   switch (viewerType) {
     case 'pdf':
       openSecurePDFViewer(openDialog, filePath, fileName)
