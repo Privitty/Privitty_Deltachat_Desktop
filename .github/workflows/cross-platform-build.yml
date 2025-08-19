@@ -25,6 +25,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+<<<<<<< HEAD
+=======
+      with:
+        fetch-depth: 0
+>>>>>>> 1d5a26b6 (Fix GitHub Actions workflows: install pnpm before Node.js cache setup)
       
     - name: Install pnpm
       uses: pnpm/action-setup@v4
@@ -39,6 +44,10 @@ jobs:
         
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
+      
+    - name: Set version info
+      run: |
+        echo "VERSION_INFO_GIT_REF=${{ github.sha }}-${{ github.ref_name }}" >> $GITHUB_ENV
       
     - name: Test cross-platform scripts
       run: |
