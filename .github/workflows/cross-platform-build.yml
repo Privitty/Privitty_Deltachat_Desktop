@@ -43,6 +43,7 @@ jobs:
       run: pnpm install --frozen-lockfile
       
     - name: Set version info
+      shell: bash
       run: |
         echo "VERSION_INFO_GIT_REF=${{ github.sha }}-${{ github.ref_name }}" >> $GITHUB_ENV
       
@@ -52,12 +53,14 @@ jobs:
         node bin/test-cross-platform.js
         
     - name: Test translation processing
+      shell: bash
       run: |
         echo "🔄 Testing translation processing..."
         pnpm translations:convert
         node bin/find_complete_translations.js
         
     - name: Test build process (without full build)
+      shell: bash
       run: |
         echo "🧪 Testing build process for ${{ matrix.target }}..."
         if [ "${{ matrix.target }}" = "electron" ]; then
@@ -73,6 +76,7 @@ jobs:
         fi
         
     - name: Verify build process completion
+      shell: bash
       run: |
         echo "✅ Verifying build process completion..."
         if [ "${{ matrix.target }}" = "electron" ]; then
