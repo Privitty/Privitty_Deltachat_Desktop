@@ -162,15 +162,26 @@ export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAtta
         const decryptedFileExtension = extname(filePathName).toLowerCase()
         const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
         const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
-        
+        let viewerType: 'pdf' | 'image' | 'video' | 'media' = 'media'
         if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
+          if (supportedImageExtensions.includes(decryptedFileExtension)){
+            viewerType = 'image'
+          }
+          else if( supportedVideoExtensions.includes(decryptedFileExtension)){
+            viewerType = 'video'  
+          }else if (decryptedFileExtension === '.pdf') {
+            viewerType = 'pdf'
+          }
+          else {
+            viewerType = 'media'  
+          }
           log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
           // Return a result to indicate this should be opened in secure viewer
           return {
             useSecureViewer: true,
             filePath: filePathName,
             fileName: msg.fileName,
-            viewerType: decryptedFileExtension === '.pdf' ? 'pdf' : 'media'
+            viewerType: viewerType
           }
         }
         //runtime.OpenSecureViewer(filePathName, filePathName)
