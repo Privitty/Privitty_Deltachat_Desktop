@@ -39,7 +39,14 @@ export function onDownload(msg: Type.Message) {
   }
 }
 
-export async function openAttachmentInShell(msg: Type.Message) {
+interface OpenAttachmentResult {
+  useSecureViewer?: boolean
+  filePath?: string
+  fileName?: string
+  viewerType?: string
+}
+
+export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAttachmentResult | void> {
   if (!msg.file || !msg.fileName) {
     log.error('message has no file to open:', msg)
     throw new Error('message has no file to open')
@@ -127,8 +134,13 @@ export async function openAttachmentInShell(msg: Type.Message) {
         
         if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
           log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
-          // Return a special result to indicate this should be opened in secure viewer
-          throw new Error('PDF_DECRYPTED_NEEDS_SECURE_VIEWER')
+          // Return a result to indicate this should be opened in secure viewer
+          return {
+            useSecureViewer: true,
+            filePath: filePathName,
+            fileName: msg.fileName,
+            viewerType: decryptedFileExtension === '.pdf' ? 'pdf' : 'media'
+          }
         }
         runtime.openPath(filePathName)
         return
@@ -153,8 +165,13 @@ export async function openAttachmentInShell(msg: Type.Message) {
         
         if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
           log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
-          // Return a special result to indicate this should be opened in secure viewer
-          throw new Error('PDF_DECRYPTED_NEEDS_SECURE_VIEWER')
+          // Return a result to indicate this should be opened in secure viewer
+          return {
+            useSecureViewer: true,
+            filePath: filePathName,
+            fileName: msg.fileName,
+            viewerType: decryptedFileExtension === '.pdf' ? 'pdf' : 'media'
+          }
         }
         //runtime.OpenSecureViewer(filePathName, filePathName)
         //runtime.openPath(filePathName)

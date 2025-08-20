@@ -129,97 +129,15 @@ export default function Attachment({
           }
         } else {
           // For non-PDF files, use the regular opening method
-          try {
-            await openAttachmentInShell(message)
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-            if (errorMessage === 'PDF_DECRYPTED_NEEDS_SECURE_VIEWER') {
-              // This is a decrypted media file that needs to be opened in secure viewer
-              // We need to get the file path and open it in secure viewer
-              let tmpFile: string
-              try {
-                tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
-              } catch (copyError) {
-                console.error('Failed to copy PDF file to temp directory:', copyError)
-                return
-              }
-              
-              let filePathName = tmpFile
-              
-              // Handle .prv files (encrypted files)
-              if (message.fileName.toLowerCase().endsWith('.prv')) {
-                filePathName = tmpFile.replace(/\\/g, '/')
-                const response = await runtime.PrivittySendMessage('decryptFile', {
-                  chatId: message.chatId,
-                  filePath: dirname(filePathName),
-                  fileName: message.fileName,
-                  direction: message.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
-                })
-                filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
-                
-                if (filePathName === 'SPLITKEYS_EXPIRED' || filePathName === 'SPLITKEYS_REQUESTED') {
-                  return
-                }
-              }
-              
-              // Determine the correct viewer type based on file extension
-              let viewerType: 'pdf' | 'image' | 'video' = 'pdf'
-              const finalFileExtension = extname(filePathName).toLowerCase()
-              
-              if (finalFileExtension === '.pdf') {
-                viewerType = 'pdf'
-              } else if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(finalFileExtension)) {
-                viewerType = 'image'
-              } else if (['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v'].includes(finalFileExtension)) {
-                viewerType = 'video'
-              }
-              
-              // Open in appropriate secure viewer
-              openSecureViewer(openDialog, filePathName, message.fileName, viewerType)
-            } else {
-              console.error('Error opening file:', error)
-            }
+          const result = await openAttachmentInShell(message)
+          if (result?.useSecureViewer) {
+            openSecureViewer(openDialog, result.filePath!, result.fileName!, result.viewerType as 'pdf' | 'image' | 'video')
           }
         }
       } else {
-        try {
-          await openAttachmentInShell(message)
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          if (errorMessage === 'PDF_DECRYPTED_NEEDS_SECURE_VIEWER') {
-            // This is a decrypted PDF that needs to be opened in secure viewer
-            // We need to get the file path and open it in secure viewer
-            let tmpFile: string
-            try {
-              tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
-            } catch (copyError) {
-              console.error('Failed to copy PDF file to temp directory:', copyError)
-              return
-            }
-            
-            let filePathName = tmpFile
-            
-            // Handle .prv files (encrypted files)
-            if (message.fileName.toLowerCase().endsWith('.prv')) {
-              filePathName = tmpFile.replace(/\\/g, '/')
-              const response = await runtime.PrivittySendMessage('decryptFile', {
-                chatId: message.chatId,
-                filePath: dirname(filePathName),
-                fileName: message.fileName,
-                direction: message.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
-              })
-              filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
-              
-              if (filePathName === 'SPLITKEYS_EXPIRED' || filePathName === 'SPLITKEYS_REQUESTED') {
-                return
-              }
-            }
-            
-            // Open PDF in secure viewer
-            openSecureViewer(openDialog, filePathName, message.fileName, 'pdf')
-          } else {
-            console.error('Error opening file:', error)
-          }
+        const result = await openAttachmentInShell(message)
+        if (result?.useSecureViewer) {
+          openSecureViewer(openDialog, result.filePath!, result.fileName!, result.viewerType as 'pdf' | 'image' | 'video')
         }
       }
     }

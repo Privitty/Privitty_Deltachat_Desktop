@@ -17,22 +17,22 @@ const PDFViewer: React.FC<{ filePath: string }> = ({ filePath }) => {
       
       // Set worker source to use the correct version
       try {
-        // First, try to disable worker and use main thread
-        pdfjsLib.GlobalWorkerOptions.workerSrc = false;
-      } catch (error) {
-        // Fallback: try to use the local worker file
+        // First, try to use the local worker file
+        const workerPath = 'pdf.worker.min.mjs';
+        const workerResponse = await fetch(workerPath);
+        if (workerResponse.ok) {
+          const workerBlob = await workerResponse.blob();
+          const workerBlobUrl = URL.createObjectURL(workerBlob);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
+        } else {
+          throw new Error(`Worker file not accessible: ${workerResponse.status}`);
+        }
+      } catch (blobError) {
+        // Fallback: try to disable worker and use main thread
         try {
-          const workerPath = 'pdf.worker.min.mjs';
-          const workerResponse = await fetch(workerPath);
-          if (workerResponse.ok) {
-            const workerBlob = await workerResponse.blob();
-            const workerBlobUrl = URL.createObjectURL(workerBlob);
-            pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
-          } else {
-            // Final fallback to CDN with matching version
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          }
-        } catch (blobError) {
+          // Set workerSrc to null to disable worker (this is the correct way)
+          pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+        } catch (disableError) {
           // Final fallback to CDN with matching version
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
         }
