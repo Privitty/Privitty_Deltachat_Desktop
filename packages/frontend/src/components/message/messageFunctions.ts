@@ -54,27 +54,10 @@ export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAtta
   let tmpFile: string
   try {
     tmpFile = await runtime.copyFileToInternalTmpDir(msg.fileName, msg.file)
-    log.info('File copied to tmp dir', { originalFile: msg.file, tmpFile })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    log.error('Failed to copy file to temp directory', { 
-      originalFile: msg.file, 
-      fileName: msg.fileName, 
-      error: errorMessage 
-    })
-    
-    // Show user-friendly error message
-    runtime.showNotification({
-      title: 'File Error',
-      body: 'The file could not be opened because it is no longer available. It may have been deleted or moved.',
-      icon: null,
-      chatId: msg.chatId,
-      messageId: msg.id,
-      accountId: selectedAccountId(),
-      notificationType: 0,
-    })
-    
-    throw new Error('File is no longer available')
+    log.error('Failed to copy file to tmp dir', { error: errorMessage })
+    return
   }
   
   let filePathName = tmpFile
@@ -86,9 +69,7 @@ export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAtta
       fileName: msg.fileName,
       direction: msg.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
     })
-    console.log('decryptFile response:', response)
     filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
-    console.log('decrypted file path:', filePathName)
     if (filePathName === 'SPLITKEYS_EXPIRED') {
       runtime.showNotification({
         title: 'Privitty',
@@ -124,24 +105,8 @@ export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAtta
           outgoing: true,
         }
       )
-      console.log('canDownloadFile response :', fileAccessResponse)
-      const parsedResponse = JSON.parse(fileAccessResponse)
-      if (JSON.parse(parsedResponse?.result).fileAccessState != 'revoked') {
+      if (JSON.parse(fileAccessResponse).fileAccessState != 'revoked') {
         // Check if the decrypted file is a supported media type that should be opened in secure viewer
-        const decryptedFileExtension = extname(filePathName).toLowerCase()
-        const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
-        const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
-        
-        if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
-          log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
-          // Return a result to indicate this should be opened in secure viewer
-          return {
-            useSecureViewer: true,
-            filePath: filePathName,
-            fileName: msg.fileName,
-            viewerType: decryptedFileExtension === '.pdf' ? 'pdf' : 'media'
-          }
-        }
         runtime.openPath(filePathName)
         return
       }
@@ -155,33 +120,50 @@ export async function openAttachmentInShell(msg: Type.Message): Promise<OpenAtta
           outgoing: msg.fromId === C.DC_CONTACT_ID_SELF,
         }
       )
-      console.log('canDownloadFile response :', fileAccessResponse)
-      const parsedResponse = JSON.parse(fileAccessResponse)
-      if (JSON.parse(parsedResponse?.result).status === 'false') {
+      if (JSON.parse(JSON.parse(fileAccessResponse).result).status === 'false') {
+      //if (JSON.parse(fileAccessResponse).status === 'false') {
         // Check if the decrypted file is a supported media type that should be opened in secure viewer
         const decryptedFileExtension = extname(filePathName).toLowerCase()
         const supportedImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
         const supportedVideoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v']
         let viewerType: 'pdf' | 'image' | 'video' | 'media' = 'media'
         if (decryptedFileExtension === '.pdf' || supportedImageExtensions.includes(decryptedFileExtension) || supportedVideoExtensions.includes(decryptedFileExtension)) {
-          if (supportedImageExtensions.includes(decryptedFileExtension)){
-            viewerType = 'image'
-          }
-          else if( supportedVideoExtensions.includes(decryptedFileExtension)){
-            viewerType = 'video'  
-          }else if (decryptedFileExtension === '.pdf') {
-            viewerType = 'pdf'
-          }
-          else {
-            viewerType = 'media'  
-          }
           log.info('Decrypted file is supported media, should be opened in secure viewer', { filePath: filePathName, fileName: msg.fileName, extension: decryptedFileExtension })
+
+          // On Windows, copy the decrypted file to a clean location to avoid .prv directory issues
+          let cleanFilePath = filePathName
+          log.info('Processing file path for secure viewer (incoming)', {
+            originalPath: filePathName,
+            platform: typeof window !== 'undefined' ? window.process?.platform : 'unknown',
+            containsPrv: filePathName.includes('.prv')
+          })
+
+          if (typeof window !== 'undefined' && window.process?.platform === 'win32' && filePathName.includes('.prv')) {
+            try {
+              log.info('Windows detected, copying decrypted file to clean location', { originalPath:filePathName })
+              const cleanFileName = basename(filePathName)
+              log.info('Clean filename extracted', { cleanFileName })
+              cleanFilePath = await runtime.copyFileToInternalTmpDir(cleanFileName, filePathName)
+              log.info('Decrypted file copied to clean location', { cleanFilePath })
+            } catch (copyError) {
+              log.warn('Failed to copy decrypted file to clean location, using original path', copyError)
+              // Fallback to original path if copying fails
+              cleanFilePath = filePathName
+            }
+          } else {
+            log.info('Not copying file - conditions not met (incoming)', {
+              isWindows: typeof window !== 'undefined' && window.process?.platform === 'win32',
+              containsPrv: filePathName.includes('.prv')
+            })
+          }
+
           // Return a result to indicate this should be opened in secure viewer
           return {
             useSecureViewer: true,
-            filePath: filePathName,
+            filePath: cleanFilePath,
             fileName: msg.fileName,
-            viewerType: viewerType
+            viewerType: decryptedFileExtension === '.pdf' ? 'pdf' :
+                        supportedImageExtensions.includes(decryptedFileExtension) ? 'image' : 'video'
           }
         }
         //runtime.OpenSecureViewer(filePathName, filePathName)
@@ -258,7 +240,6 @@ const privittyForwardable = async (message: T.Message): Promise<boolean> => {
         isforwardable = JSON.parse(result.result).fileAccessState === 'active'
       }
 
-      console.log('isforwardable:', isforwardable, result)
     } else {
       const response = await runtime.PrivittySendMessage('canForwardFile', {
         chatId: message.chatId,
@@ -270,7 +251,6 @@ const privittyForwardable = async (message: T.Message): Promise<boolean> => {
       if (result) {
         isforwardable = JSON.parse(result.result).status === 'true'
       }
-      console.log('isforwardable:', isforwardable, result)
     }
   }
   return isforwardable
@@ -342,19 +322,10 @@ export async function confirmForwardMessage(
           chatId: chat?.id,
         }
       )
-      console.log('isChatPrivittyProtected response MenuAttachment', result)
       if (result) {
         try {
           const resp = JSON.parse(result)
           if (resp.result === 'false') {
-            console.log(
-              'accountid =',
-              accountId,
-              'chat.id =',
-              chat.id,
-              'chatName =',
-              chat.name
-            )
             const addpeerResponse = await runtime.PrivittySendMessage(
               'produceEvent',
               {
@@ -371,7 +342,6 @@ export async function confirmForwardMessage(
                 pdu: [],
               }
             )
-            console.log('addpeerResponse =', addpeerResponse)
             const parsedResponse = JSON.parse(addpeerResponse)
             if (parsedResponse.message_type === PRV_APP_STATUS_SEND_PEER_PDU) {
               const base64Msg = btoa(

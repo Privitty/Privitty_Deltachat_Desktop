@@ -70,7 +70,6 @@ export default function Attachment({
               tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
             } catch (copyError) {
               const errorMessage = copyError instanceof Error ? copyError.message : 'Unknown error'
-              console.error('Failed to copy media file to temp directory:', errorMessage)
               
               // Show user-friendly error message
               runtime.showNotification({
@@ -111,6 +110,12 @@ export default function Attachment({
             // Determine the correct viewer type based on file extension
             let viewerType: 'pdf' | 'image' | 'video' = 'pdf'
             const finalFileExtension = extname(filePathName).toLowerCase()
+
+            console.log('Determining viewer type', {
+              filePathName,
+              finalFileExtension,
+              fileName: message.fileName
+            })
             
             if (finalFileExtension === '.pdf') {
               viewerType = 'pdf'
@@ -120,6 +125,8 @@ export default function Attachment({
               viewerType = 'video'
             }
             
+            console.log('Opening secure viewer', { viewerType, filePathName, fileName: message.fileName })
+
             // Open in appropriate secure viewer
             openSecureViewer(openDialog, filePathName, message.fileName, viewerType)
           } catch (error) {
