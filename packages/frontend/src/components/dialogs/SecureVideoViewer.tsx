@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import Dialog from '../Dialog'
 import { IconButton } from '../Icon'
 import { getLogger } from '../../../../shared/logger'
-import useTranslationFunction from '../../hooks/useTranslationFunction'
 
 import type { DialogProps } from '../../contexts/DialogContext'
 
@@ -15,31 +14,79 @@ type Props = {
 
 export default function SecureVideoViewer(props: Props & DialogProps) {
   const { filePath, fileName, onClose } = props
-  const tx = useTranslationFunction()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     loadVideo()
   }, [filePath])
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+    }
+  }, [])
 
   const loadVideo = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Create a file URL for the video
-      const url = `file://${filePath}`
-      log.info('Loading video in secure viewer', { filePath, url })
+      log.info('Loading video in secure viewer', {
+        filePath,
+        platform: typeof window !== 'undefined' ? window.process?.platform : 'unknown',
+        containsPrv: filePath.includes('.prv')
+      })
+
+      // Load file using Node.js fs (works on both Windows and macOS)
+      let videoUrl: string
+
+      try {
+        const fs = require('fs')
+        const path = require('path')
+
+        // Normalize file path
+        let normalizedPath = filePath.replace(/^file:\/\//, '')
+        if (normalizedPath.startsWith('/')) {
+          normalizedPath = normalizedPath.substring(1)
+        }
+        normalizedPath = path.resolve(normalizedPath)
+
+        // Check if file exists and read it
+        if (!fs.existsSync(normalizedPath)) {
+          throw new Error(`File does not exist: ${normalizedPath}`)
+        }
+
+        const fileBuffer = fs.readFileSync(normalizedPath)
+        const blob = new Blob([fileBuffer], { type: 'video/*' })
+        const blobUrl = URL.createObjectURL(blob)
+        videoUrl = blobUrl
+        blobUrlRef.current = blobUrl
+
+        log.info('Video loaded using Node.js fs', { fileSize: fileBuffer.length })
+      } catch (fsError) {
+        // Fallback: use file:// URL (works on macOS, may fail on Windows)
+        let normalizedFilePath = filePath
+        if (!normalizedFilePath.startsWith('file://')) {
+          normalizedFilePath = `file:///${normalizedFilePath.replace(/\\/g, '/')}`
+        }
+        videoUrl = normalizedFilePath
+        log.info('Using file:// URL fallback for video')
+      }
       
-      setVideoUrl(url)
+      setVideoUrl(videoUrl)
       setLoading(false)
     } catch (err) {
       log.error('Failed to load video', err)
-      setError(tx('error_loading_video'))
+      setError(err instanceof Error ? err.message : 'Failed to load video')
       setLoading(false)
     }
   }
@@ -51,7 +98,7 @@ export default function SecureVideoViewer(props: Props & DialogProps) {
 
   const handleVideoError = () => {
     log.error('Video failed to load', { videoUrl })
-    setError(tx('error_loading_video'))
+    setError('Failed to load video')
     setLoading(false)
   }
 
@@ -70,7 +117,7 @@ export default function SecureVideoViewer(props: Props & DialogProps) {
     <Dialog onClose={onClose} className='secure-video-viewer'>
       <div className='secure-video-viewer-header'>
         <h2>{fileName}</h2>
-        <IconButton icon='cross' onClick={onClose} aria-label={tx('close')} />
+        <IconButton icon='cross' onClick={onClose} aria-label='Close' />
       </div>
       
       <div 
@@ -81,18 +128,18 @@ export default function SecureVideoViewer(props: Props & DialogProps) {
         {loading && (
           <div className='video-loading-overlay'>
             <div className='video-loading-spinner'></div>
-            <span>{tx('loading_video')}</span>
+            <span>Loading video...</span>
           </div>
         )}
 
         {error && (
           <div className='video-error-overlay'>
             <div className='error-content'>
-                              <IconButton icon='cross' size={48} aria-label={tx('error')} />
-              <h3>{tx('error_loading_video')}</h3>
+              <IconButton icon='cross' size={48} aria-label='Error' />
+              <h3>Video Loading Error</h3>
               <p>{error}</p>
               <button onClick={loadVideo} className='retry-button'>
-                {tx('retry')}
+              Retry
               </button>
             </div>
           </div>
@@ -130,8 +177,8 @@ export default function SecureVideoViewer(props: Props & DialogProps) {
       
       <div className='secure-video-viewer-footer'>
         <div className='secure-notice'>
-                      <IconButton icon='info' size={16} aria-label={tx('secure_viewer_notice')} />
-          <span>{tx('secure_viewer_notice')}</span>
+          <IconButton icon='info' size={16} aria-label='Secure viewer notice' />
+          <span>This is a secure viewer. Video content cannot be copied or saved.</span>
         </div>
       </div>
     </Dialog>

@@ -56,7 +56,6 @@ export async function openAttachmentInShell(
   let tmpFile: string
   try {
     tmpFile = await runtime.copyFileToInternalTmpDir(msg.fileName, msg.file)
-    log.info('File copied to tmp dir', { originalFile: msg.file, tmpFile })
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error'
@@ -89,9 +88,7 @@ export async function openAttachmentInShell(
       fileName: msg.fileName,
       direction: msg.fromId === C.DC_CONTACT_ID_SELF ? 1 : 0,
     })
-    console.log('decryptFile response:', response)
     filePathName = JSON.parse(JSON.parse(response).result).decryptedFile
-    console.log('decrypted file path:', filePathName)
     if (filePathName === 'SPLITKEYS_EXPIRED') {
       runtime.showNotification({
         title: 'Privitty',
@@ -127,9 +124,7 @@ export async function openAttachmentInShell(
           outgoing: true,
         }
       )
-      console.log('canDownloadFile response :', fileAccessResponse)
-      const parsedResponse = JSON.parse(fileAccessResponse)
-      if (JSON.parse(parsedResponse?.result).fileAccessState != 'revoked') {
+      if (JSON.parse(fileAccessResponse).fileAccessState != 'revoked') {
         // Check if the decrypted file is a supported media type that should be opened in secure viewer
         const decryptedFileExtension = extname(filePathName).toLowerCase()
         const supportedImageExtensions = [
@@ -186,9 +181,8 @@ export async function openAttachmentInShell(
           outgoing: msg.fromId === C.DC_CONTACT_ID_SELF,
         }
       )
-      console.log('canDownloadFile response :', fileAccessResponse)
-      const parsedResponse = JSON.parse(fileAccessResponse)
-      if (JSON.parse(parsedResponse?.result).status === 'false') {
+      if (JSON.parse(JSON.parse(fileAccessResponse).result).status === 'false') {
+      //if (JSON.parse(fileAccessResponse).status === 'false') {
         // Check if the decrypted file is a supported media type that should be opened in secure viewer
         const decryptedFileExtension = extname(filePathName).toLowerCase()
         const supportedImageExtensions = [
@@ -238,7 +232,7 @@ export async function openAttachmentInShell(
           // Return a result to indicate this should be opened in secure viewer
           return {
             useSecureViewer: true,
-            filePath: filePathName,
+            filePath: cleanFilePath,
             fileName: msg.fileName,
             viewerType: viewerType,
           }
@@ -316,7 +310,6 @@ const privittyForwardable = async (message: T.Message): Promise<boolean> => {
         isforwardable = JSON.parse(result.result).fileAccessState === 'active'
       }
 
-      console.log('isforwardable:', isforwardable, result)
     } else {
       const response = await runtime.PrivittySendMessage('canForwardFile', {
         chatId: message.chatId,
@@ -328,7 +321,6 @@ const privittyForwardable = async (message: T.Message): Promise<boolean> => {
       if (result) {
         isforwardable = JSON.parse(result.result).status === 'true'
       }
-      console.log('isforwardable:', isforwardable, result)
     }
   }
   return isforwardable
@@ -400,19 +392,10 @@ export async function confirmForwardMessage(
           chatId: chat?.id,
         }
       )
-      console.log('isChatPrivittyProtected response MenuAttachment', result)
       if (result) {
         try {
           const resp = JSON.parse(result)
           if (resp.result === 'false') {
-            console.log(
-              'accountid =',
-              accountId,
-              'chat.id =',
-              chat.id,
-              'chatName =',
-              chat.name
-            )
             const addpeerResponse = await runtime.PrivittySendMessage(
               'produceEvent',
               {
@@ -429,7 +412,6 @@ export async function confirmForwardMessage(
                 pdu: [],
               }
             )
-            console.log('addpeerResponse =', addpeerResponse)
             const parsedResponse = JSON.parse(addpeerResponse)
             if (parsedResponse.message_type === PRV_APP_STATUS_SEND_PEER_PDU) {
               const base64Msg = btoa(

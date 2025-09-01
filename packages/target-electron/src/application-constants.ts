@@ -99,6 +99,7 @@ export const ALLOWED_ACCOUNT_FOLDERS = [
   'db.sqlite-blobs' /* can this old name still exist? */,
   'dc.db-blobs',
   'stickers',
+  'tmp', // Allow access to temporary files including .prv files
 ]
 
 // folder inside account dir to store files

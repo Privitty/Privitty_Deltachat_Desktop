@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 
 import Dialog from '../Dialog'
 import { IconButton } from '../Icon'
+import Icon from '../Icon'
 import { getLogger } from '../../../../shared/logger'
 import { useInitEffect } from '../helpers/hooks'
 import useTranslationFunction from '../../hooks/useTranslationFunction'
@@ -24,7 +25,6 @@ interface PDFPageProxy {
 interface PDFPageViewport {
   width: number
   height: number
-  scale: number
 }
 
 interface PDFRenderParams {
@@ -54,130 +54,92 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
   const [pageLoading, setPageLoading] = useState(false)
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   // Load PDF document
   const loadPDF = useCallback(async () => {
     try {
+      // Cleanup any existing blob URL
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+
       setLoading(true)
       setError(null)
-      
-      // Ensure we're in a browser environment
-      if (typeof window === 'undefined') {
-        throw new Error('PDF viewer requires a browser environment')
-      }
-      
-      // Check if pdfjs-dist is available
-      let pdfjsLib
-      try {
-        // Use dynamic import for browser environment
-        pdfjsLib = await import('pdfjs-dist/build/pdf.mjs')
-      } catch (importError) {
-        // Fallback to legacy build if needed
-        try {
-          pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js')
-        } catch (legacyError) {
-          throw new Error('PDF.js library is not available. Please ensure pdfjs-dist is installed.')
-        }
-      }
-      
-      // Set worker source - try multiple approaches
-      try {
-        // First, try to use the local worker file
-        const workerPath = 'pdf.worker.min.mjs'
-        log.info('Loading PDF.js worker file', { workerPath })
-        
-        const workerResponse = await fetch(workerPath)
-        if (!workerResponse.ok) {
-          throw new Error(`Worker file not accessible: ${workerResponse.status}`)
-        }
-        
-        const workerBlob = await workerResponse.blob()
-        const workerBlobUrl = URL.createObjectURL(workerBlob)
-        
-        pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl
-        log.info('PDF.js worker source set to blob URL', { 
-          workerBlobUrl,
-          blobSize: workerBlob.size 
-        })
-      } catch (blobError) {
-        log.warn('Failed to set PDF.js worker blob URL', blobError)
-        
-        // Fallback: try to disable worker and use main thread
-        try {
-          // Set workerSrc to null to disable worker (this is the correct way)
-          pdfjsLib.GlobalWorkerOptions.workerSrc = null
-          log.info('PDF.js worker disabled, using main thread')
-        } catch (disableError) {
-          log.warn('Failed to disable PDF.js worker', disableError)
-          
-          // Final fallback to CDN with matching version
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-          log.info('Using CDN fallback for PDF.js worker', { version: pdfjsLib.version })
-        }
-      }
       
       // Validate file path
       if (!filePath || typeof filePath !== 'string') {
         throw new Error('Invalid file path provided')
       }
       
-      // Ensure file path is properly formatted for the current platform
-      let normalizedFilePath = filePath
-      if (typeof window !== 'undefined' && window.process?.platform === 'win32') {
-        // On Windows, ensure the path uses forward slashes for file:// URLs
-        normalizedFilePath = filePath.replace(/\\/g, '/')
-        // Ensure the path starts with file:// protocol
-        if (!normalizedFilePath.startsWith('file://')) {
-          normalizedFilePath = `file:///${normalizedFilePath}`
+      // Load PDF.js library
+      const pdfjsLibrary = require('pdfjs-dist')
+
+      // Set up worker
+      try {
+        const workerPath = 'pdf.worker.min.mjs'
+        const workerResponse = await fetch(workerPath)
+        if (workerResponse.ok) {
+          const workerBlob = await workerResponse.blob()
+          const workerBlobUrl = URL.createObjectURL(workerBlob)
+          pdfjsLibrary.GlobalWorkerOptions.workerSrc = workerBlobUrl
         }
+      } catch {
+        // Fallback: disable worker and use main thread
+        pdfjsLibrary.GlobalWorkerOptions.workerSrc = null
+      }
+      
+      // Load file using Node.js fs (works on both Windows and macOS)
+      let pdfSource: string | Uint8Array
+
+      try {
+        const fs = require('fs')
+        const path = require('path')
+
+        // Normalize file path
+        let normalizedPath = filePath.replace(/^file:\/\//, '')
+        if (normalizedPath.startsWith('/')) {
+          normalizedPath = normalizedPath.substring(1)
+        }
+        normalizedPath = path.resolve(normalizedPath)
+
+        // Check if file exists and read it
+        if (!fs.existsSync(normalizedPath)) {
+          throw new Error(`File does not exist: ${normalizedPath}`)
+        }
+        
+        const fileBuffer = fs.readFileSync(normalizedPath)
+        const blob = new Blob([fileBuffer], { type: 'application/pdf' })
+        const blobUrl = URL.createObjectURL(blob)
+        pdfSource = blobUrl
+        blobUrlRef.current = blobUrl
+
+        log.info('File loaded using Node.js fs', { fileSize: fileBuffer.length })
+      } catch (fsError) {
+        // Fallback: use file:// URL (works on macOS, may fail on Windows)
+        let normalizedFilePath = filePath
+        if (!normalizedFilePath.startsWith('file://')) {
+          normalizedFilePath = `file:///${normalizedFilePath.replace(/\\/g, '/')}`
+        }
+        pdfSource = normalizedFilePath
+        log.info('Using file:// URL fallback')
       }
       
       // Load the PDF document
-      log.info('Starting PDF load', { 
-        originalFilePath: filePath,
-        normalizedFilePath,
-        workerSrc: pdfjsLib.GlobalWorkerOptions.workerSrc,
-        pdfjsVersion: pdfjsLib.version,
-        platform: typeof window !== 'undefined' ? window.process?.platform : 'unknown'
-      })
-      
-      let loadingTask
-      let pdfDoc
-      
-      try {
-        loadingTask = pdfjsLib.getDocument(normalizedFilePath)
-        log.info('PDF loading task created successfully')
-        
-        pdfDoc = await loadingTask.promise
-        log.info('PDF document loaded successfully')
-      } catch (pdfError) {
-        log.error('Failed to load PDF document', pdfError)
-        throw new Error(`PDF loading failed: ${pdfError.message}`)
-      }
-      
+      const loadingTask = pdfjsLibrary.getDocument(pdfSource)
+      const pdfDoc = await loadingTask.promise
+
       setPdf(pdfDoc)
       setTotalPages(pdfDoc.numPages)
       setCurrentPage(1)
       setLoading(false)
       
-      log.info('PDF loaded successfully', { pages: pdfDoc.numPages, filePath })
+      log.info('PDF loaded successfully', { pages: pdfDoc.numPages })
     } catch (err) {
       log.error('Failed to load PDF', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load PDF'
-      
-      // Provide more specific error messages for common issues
-      if (errorMessage.includes('pdfjs-dist')) {
-        setError('PDF.js library is not available. Please check your installation.')
-      } else if (errorMessage.includes('worker')) {
-        setError('PDF.js worker could not be loaded. Please check your internet connection.')
-      } else if (errorMessage.includes('API version') && errorMessage.includes('worker version')) {
-        setError('PDF.js version mismatch detected. Please restart the application to fix this issue.')
-      } else if (errorMessage.includes('Invalid file path')) {
-        setError('The PDF file path is invalid or the file does not exist.')
-      } else {
-        setError(errorMessage)
-      }
-      
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
       setLoading(false)
     }
   }, [filePath])
@@ -190,8 +152,6 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
       setPageLoading(true)
       
       const page = await pdf.getPage(currentPage)
-      const viewport = page.getViewport({ scale })
-      
       const canvas = canvasRef.current
       const context = canvas.getContext('2d')
       
@@ -199,17 +159,16 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
         throw new Error('Failed to get canvas context')
       }
       
-      // Set canvas dimensions
+      const viewport = page.getViewport({ scale })
+
       canvas.height = viewport.height
       canvas.width = viewport.width
       
-      // Render the page
       await page.render({
         canvasContext: context as any,
         viewport: viewport
       }).promise
       
-      log.debug('Page rendered successfully', { page: currentPage, scale })
       setPageLoading(false)
     } catch (err) {
       log.error('Failed to render page', err)
@@ -221,9 +180,19 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
   // Load PDF on mount
   useInitEffect(() => {
     loadPDF()
-  }, [loadPDF])
+  })
 
-  // Security: Prevent context menu on canvas
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
+    }
+  }, [])
+
+  // Security: Prevent context menu and keyboard shortcuts
   useEffect(() => {
     const canvas = canvasRef.current
     if (canvas) {
@@ -240,10 +209,8 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
     }
   }, [pdf])
 
-  // Security: Prevent keyboard shortcuts for copying
   useEffect(() => {
     const preventCopyShortcuts = (e: KeyboardEvent) => {
-      // Prevent Ctrl+C, Cmd+C, Ctrl+A, Cmd+A
       if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'a')) {
         e.preventDefault()
         return false
@@ -292,33 +259,23 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
   }, [totalPages])
 
   const zoomIn = useCallback(() => {
-    setScale(prev => {
-      const newScale = Math.min(prev + 0.25, 3)
-      log.info('Zoom in', { prevScale: prev, newScale })
-      return newScale
-    })
+    setScale(prev => Math.min(prev + 0.25, 3))
   }, [])
 
   const zoomOut = useCallback(() => {
-    setScale(prev => {
-      const newScale = Math.max(prev - 0.25, 0.5)
-      log.info('Zoom out', { prevScale: prev, newScale })
-      return newScale
-    })
+    setScale(prev => Math.max(prev - 0.25, 0.5))
   }, [])
 
   const resetZoom = useCallback(() => {
     setScale(1)
   }, [])
 
-
-
   if (loading) {
     return (
       <Dialog onClose={onClose} className='secure-pdf-viewer-dialog'>
         <div className='secure-pdf-viewer-loading'>
           <div className='loading-spinner'></div>
-          <p>{tx('loading_pdf')}</p>
+          <p>Loading PDF...</p>
         </div>
       </Dialog>
     )
@@ -328,11 +285,11 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
     return (
       <Dialog onClose={onClose} className='secure-pdf-viewer-dialog'>
         <div className='secure-pdf-viewer-error'>
-          <IconButton icon='cross' size={48} aria-label={tx('error_loading_pdf')} />
-          <h3>{tx('error_loading_pdf')}</h3>
+          <IconButton icon='cross' size={48} aria-label='Error loading PDF' />
+          <h3>PDF Loading Error</h3>
           <p>{error}</p>
           <button onClick={loadPDF} className='retry-button'>
-            {tx('retry')}
+            Retry
           </button>
         </div>
       </Dialog>
@@ -345,22 +302,22 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
         <div className='secure-pdf-viewer-title'>
           <h2>{fileName}</h2>
           <span className='page-info'>
-            {tx('page_info', [currentPage.toString(), totalPages.toString()])}
+            Page {currentPage} of {totalPages}
           </span>
         </div>
         
         <IconButton
           icon='cross'
           onClick={onClose}
-          aria-label={tx('close')}
+          aria-label='Close'
         />
       </div>
       
-            <div className='secure-pdf-viewer-content'>
+      <div className='secure-pdf-viewer-content'>
         {pageLoading && (
           <div className='page-loading-overlay'>
             <div className='page-loading-spinner'></div>
-            <span>{tx('loading_page')}</span>
+            <span>Loading page...</span>
           </div>
         )}
         
@@ -391,21 +348,23 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
         <div className='controls-container'>
           {/* Zoom controls */}
           <div className='zoom-controls'>
-            <IconButton
-              icon='minus'
+            <button
               onClick={zoomOut}
               disabled={scale <= 0.5}
-              aria-label={tx('zoom_out')}
-              size={20}
-            />
+              aria-label='Zoom Out'
+              className='zoom-button'
+            >
+              <Icon icon='minus' size={20} />
+            </button>
             <span className='zoom-level'>{Math.round(scale * 100)}%</span>
-            <IconButton
-              icon='plus'
+            <button  
               onClick={zoomIn}
               disabled={scale >= 3}
-              aria-label={tx('zoom_in')}
-              size={20}
-            />
+              aria-label='Zoom In'
+              className='zoom-button'
+            >
+              <Icon icon='plus' size={20} />
+            </button>
             <IconButton
               icon='rotate-right'
               onClick={resetZoom}
@@ -416,21 +375,23 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
           
           {/* Pagination controls */}
           <div className='pagination-controls'>
-            <IconButton
-              icon='chevron-left'
+            <button
               onClick={goToFirstPage}
               disabled={currentPage <= 1}
-              aria-label={tx('first_page')}
-              size={20}
-            />
+              aria-label='First Page'
+              className='page-button'
+            >
+              <Icon icon='chevron-left' size={20} />
+            </button>
             
-            <IconButton
-              icon='chevron-left'
+            <button
               onClick={goToPreviousPage}
               disabled={currentPage <= 1}
-              aria-label={tx('previous_page')}
-              size={20}
-            />
+              aria-label='Previous Page'
+              className='page-button'
+            >
+              <Icon icon='chevron-left' size={20} />
+            </button>
             
             <div className='page-input-container'>
               <input
@@ -445,35 +406,37 @@ export default function SecurePDFViewer(props: Props & DialogProps) {
                   }
                 }}
                 className='page-input'
-                aria-label={tx('go_to_page')}
+                aria-label='Go to page'
               />
               <span className='page-separator'>/</span>
               <span className='total-pages'>{totalPages}</span>
             </div>
             
-            <IconButton
-              icon='chevron-right'
+            <button
               onClick={goToNextPage}
               disabled={currentPage >= totalPages}
-              aria-label={tx('next_page')}
-              size={20}
-            />
+              aria-label='Next Page'
+              className='page-button'
+            >
+              <Icon icon='chevron-right' size={20} />
+            </button>
             
-            <IconButton
-              icon='chevron-right'
+            <button
               onClick={goToLastPage}
               disabled={currentPage >= totalPages}
-              aria-label={tx('last_page')}
-              size={20}
-            />
+              aria-label='Last Page'
+              className='page-button'
+            >
+              <Icon icon='chevron-right' size={20} />
+            </button>
           </div>
         </div>
       </div>
       
       <div className='secure-pdf-viewer-footer'>
         <div className='secure-notice'>
-          <IconButton icon='info' size={16} aria-label={tx('secure_viewer_notice')} />
-          <span>{tx('secure_viewer_notice')}</span>
+          <IconButton icon='info' size={16} aria-label='Secure viewer notice' />
+          <span>This is a secure viewer. PDF content cannot be copied or saved.</span>
         </div>
       </div>
     </Dialog>
