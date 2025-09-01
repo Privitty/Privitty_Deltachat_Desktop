@@ -279,7 +279,6 @@ export default function MainScreen({ accountId }: Props) {
         </nav>
         <SharedDataProvider>
           <MessageListView accountId={accountId} />
-          
         </SharedDataProvider>
       </section>
       {!chatListShouldBeHidden && <ConnectivityToast />}

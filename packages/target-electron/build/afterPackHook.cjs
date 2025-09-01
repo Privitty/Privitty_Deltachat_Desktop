@@ -1,4 +1,4 @@
-const { copyFileSync } = require('fs')
+const { copyFileSync, existsSync } = require('fs')
 const {
   readdir,
   writeFile,
@@ -106,6 +106,9 @@ module.exports = async context => {
   // asar is electrons archive format, flatpak doesn't use it. read more about what asar is on https://www.electronjs.org/docs/latest/glossary#asar
   const asar = env['NO_ASAR'] ? false : true
   await copyMapXdc(resources_dir, source_dir, asar)
+
+  // Copy privitty DLL bundle if present (acts as a fallback to extraResources)
+  await copyPrivittyDll(resources_dir, source_dir)
 }
 
 async function packageMSVCRedist(context) {
@@ -150,11 +153,31 @@ async function copyMapXdc(resources_dir, source_dir, asar) {
   await cp(join(source_dir, 'html-dist/xdcs'), destination, { recursive: true })
 }
 
+async function copyPrivittyDll(resources_dir, source_dir) {
+  try {
+    const src = join(source_dir, '../../privitty/dll')
+    if (!existsSync(src)) {
+      console.log('privitty dll source not found, skip:', src)
+      return
+    }
+    const dest = join(resources_dir, 'privitty', 'dll')
+    await mkdir(dest, { recursive: true })
+    await cp(src, dest, { recursive: true })
+    console.log('copied privitty dlls to:', dest)
+  } catch (err) {
+    console.log('failed to copy privitty dlls:', err)
+  }
+}
+
 async function deleteNotNeededPrebuildsFromUnpackedASAR(
   prebuild_dir,
   context,
   isMacBuild
 ) {
+  if (!existsSync(prebuild_dir)) {
+    console.log('prebuild_dir does not exist, skip cleanup:', prebuild_dir)
+    return
+  }
   const prebuilds = await readdir(prebuild_dir)
 
   const toDelete = prebuilds.filter(name => {

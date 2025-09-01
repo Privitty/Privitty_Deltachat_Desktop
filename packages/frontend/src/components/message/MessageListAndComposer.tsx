@@ -170,12 +170,11 @@ export default function MessageListAndComposer({ accountId, chat }: Props) {
               const msgViewType: Viewtype = isImage(file.parsed)
                 ? 'Image'
                 : 'File'
-                const { sharedData } = useSharedData();
               sendMessage(accountId, chat.id, {
                 file: file.pathStr,
                 filename: file.parsed.name + file.parsed.ext,
                 viewtype: msgViewType,
-              },sharedData)
+              })
             }
           },
         })

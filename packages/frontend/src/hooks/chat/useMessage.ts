@@ -12,7 +12,7 @@ import { partial } from 'filesize'
 import { runtime } from '@deltachat-desktop/runtime-interface'
 import { dirname, basename, normalize } from 'path'
 //import { ContextMenuContext } from '../../contexts/ContextMenuContext'
-import { FileAttribute } from '../../contexts/FileAttribContext'
+import { useSharedDataOptional } from '../../contexts/FileAttribContext'
 import { PRV_APP_STATUS_PEER_OTSP_SPLITKEYS } from '../../../../target-electron/src/privitty/privitty_type'
 
 export type JumpToMessage = (params: {
@@ -60,8 +60,7 @@ export type JumpToMessage = (params: {
 export type SendMessage = (
   accountId: number,
   chatId: number,
-  message: Partial<T.MessageData>,
-  data: FileAttribute
+  message: Partial<T.MessageData>
 ) => Promise<void>
 
 export type ForwardMessage = (
@@ -91,6 +90,7 @@ const MESSAGE_DEFAULT: T.MessageData = {
 
 export default function useMessage() {
   const { chatId, setChatView, selectChat } = useChat()
+  const { sharedData, setSharedData } = useSharedDataOptional()
 
   const jumpToMessage = useCallback<JumpToMessage>(
     async ({
@@ -141,10 +141,8 @@ export default function useMessage() {
     async (
       accountId: number,
       chatId: number,
-      message: Partial<T.MessageData>,
-      sharedData: FileAttribute
+      message: Partial<T.MessageData>
     ) => {
-      //const { sharedData } = useSharedData()
       console.log('filePathName:', message.file)
       let msgId = 0
       if (message.file && message.filename) {
@@ -158,6 +156,22 @@ export default function useMessage() {
           ''
         )
 
+        // Set file attributes (if available) for the just-sent file
+        try {
+          if (sharedData?.FileDirectory) {
+            await runtime.PrivittySendMessage('setFileAttributes', {
+              chatId: chatId,
+              prvFilename: sharedData.FileDirectory,
+              outgoing: 1,
+              allowDownload: sharedData.allowDownload ? 1 : 0,
+              allowForward: sharedData.allowForward ? 1 : 0,
+              accessTime: sharedData.allowedTime ? Number(sharedData.allowedTime) : 0,
+            })
+          }
+        } catch (error) {
+          console.error('Failed to set file attributes:', error)
+        }
+
         // Now that the message has been sent successfully, we can safely delete the encrypted file
         if (message.file && sharedData?.FileDirectory) {
           try {
@@ -170,17 +184,6 @@ export default function useMessage() {
             console.error('Failed to delete encrypted file after sending:', error)
           }
         }
-
-        await runtime.PrivittySendMessage('setFileAttributes', {
-          chatId: chatId,
-          prvFilename: sharedData?.FileDirectory,
-          outgoing: 1,
-          allowDownload: sharedData?.allowDownload ? 1 : 0,
-          allowForward: sharedData?.allowForward ? 1 : 0,
-          accessTime: sharedData?.allowedTime
-            ? Number(sharedData?.allowedTime)
-            : 0,
-        })
 
         const response = await runtime.PrivittySendMessage('freshOtsp', {
           chatId: chatId,
@@ -232,8 +235,16 @@ export default function useMessage() {
         highlight: false,
         focus: false,
       })
+
+      // Reset shared file attributes after send to avoid leaking to next message
+      setSharedData({
+        allowDownload: false,
+        allowForward: false,
+        allowedTime: '',
+        FileDirectory: '',
+      })
     },
-    [jumpToMessage]
+    [jumpToMessage, sharedData, setSharedData]
   )
 
   const forwardMessage = useCallback<ForwardMessage>(

@@ -110,7 +110,7 @@ const Composer = forwardRef<
   const { openDialog } = useDialog()
   const { sendMessage } = useMessage()
   const { unselectChat } = useChat()
-  const { sharedData } = useSharedData();
+  
   // The philosophy of the editing mode is as follows.
   // The edit mode can be thought of as a dialog,
   // even though it does not like one visually.
@@ -202,8 +202,6 @@ const Composer = forwardRef<
     })
   }, [accountId])
 
-
-
   const composerSendMessage = messageEditing.isEditingModeActive
     ? null
     : async () => {
@@ -228,17 +226,22 @@ const Composer = forwardRef<
             log.debug(`Empty message: don't send it...`)
             return
           }
-          //const { sharedData } = useSharedData(); 
-          const sendMessagePromise = sendMessage(accountId, chatId, {
-            text: replaceColonsSafe(message),
-            file: draftState.file || undefined,
-            filename: draftState.fileName || undefined,
-            quotedMessageId:
-              draftState.quote?.kind === 'WithMessage'
-                ? draftState.quote.messageId
-                : null,
-            viewtype: draftState.viewType,
-          },sharedData)
+          //const { sharedData } = useSharedData();
+          const sendMessagePromise = sendMessage(
+            accountId,
+            chatId,
+            {
+              text: replaceColonsSafe(message),
+              file: draftState.file || undefined,
+              filename: draftState.fileName || undefined,
+              quotedMessageId:
+                draftState.quote?.kind === 'WithMessage'
+                  ? draftState.quote.messageId
+                  : null,
+              viewtype: draftState.viewType,
+            },
+            //sharedData
+          )
 
           await sendMessagePromise
 
@@ -764,6 +767,7 @@ export function useDraft(
      */
     _setDraftStateButKeepTextareaValue,
   ] = useState<DraftObject>(emptyDraft(chatId))
+  const { sharedData, setSharedData } = useSharedData()
   /**
    * `draftRef.current` gets set to `draftState` on every render.
    * That is, when you mutate the value of this ref,
@@ -823,8 +827,8 @@ export function useDraft(
     },
     [clearDraftStateButKeepTextareaValue, inputRef, canSend]
   )
-
   useEffect(() => {
+    // reload on chat change
     log.debug('reloading chat because id changed', chatId)
     //load
     loadDraft(chatId || 0)
@@ -865,18 +869,23 @@ export function useDraft(
       )
     } else {
       // Only delete encrypted files when clearing draft
-      if(draft.file && draft.file !== '') {
+      if (draft.file && draft.file !== '') {
         // Check if this is an encrypted file that should be deleted
-        const { sharedData } = useSharedData()
-        if (sharedData?.FileDirectory && draft.file.includes(sharedData.FileDirectory)) {
+        if (sharedData?.FileDirectory) {
           try {
             await runtime.PrivittySendMessage('deleteFile', {
               filePath: dirname(sharedData.FileDirectory),
               fileName: basename(sharedData.FileDirectory),
             })
-            console.log('Encrypted file deleted when clearing draft:', sharedData.FileDirectory)
+            console.log(
+              'Encrypted file deleted when clearing draft:',
+              sharedData.FileDirectory
+            )
           } catch (error) {
-            console.error('Failed to delete encrypted file when clearing draft:', error)
+            console.error(
+              'Failed to delete encrypted file when clearing draft:',
+              error
+            )
           }
         }
       }
@@ -908,7 +917,7 @@ export function useDraft(
       clearDraftStateButKeepTextareaValue()
     }
     inputRef.current?.setState({ loadingDraft: false })
-  }, [chatId, clearDraftStateButKeepTextareaValue, canSend, inputRef])
+  }, [chatId, clearDraftStateButKeepTextareaValue, canSend, inputRef, sharedData])
 
   const updateDraftText = (text: string, InputChatId: number) => {
     if (chatId !== InputChatId) {
@@ -931,24 +940,37 @@ export function useDraft(
 
   const removeFile = useCallback(async () => {
     // If there's an encrypted file in the draft, delete it when removing
-    const { sharedData } = useSharedData()
+
     if (draftRef.current.file && sharedData?.FileDirectory) {
       try {
         await runtime.PrivittySendMessage('deleteFile', {
           filePath: dirname(sharedData.FileDirectory),
           fileName: basename(sharedData.FileDirectory),
         })
-        console.log('Encrypted file deleted when removing from draft:', sharedData.FileDirectory)
+        console.log(
+          'Encrypted file deleted when removing from draft:',
+          sharedData.FileDirectory
+        )
       } catch (error) {
-        console.error('Failed to delete encrypted file when removing from draft:', error)
+        console.error(
+          'Failed to delete encrypted file when removing from draft:',
+          error
+        )
       }
     }
-    
+
     draftRef.current.file = ''
     draftRef.current.viewType = 'Text'
+    // reset shared data when removing attachment from draft
+    setSharedData({
+      allowDownload: false,
+      allowForward: false,
+      allowedTime: '',
+      FileDirectory: '',
+    })
     saveDraft()
     inputRef.current?.focus()
-  }, [inputRef, saveDraft])
+  }, [inputRef, saveDraft, sharedData, setSharedData])
 
   const addFileToDraft = useCallback(
     async (file: string, fileName: string, viewType: T.Viewtype) => {
@@ -1195,7 +1217,6 @@ function useMessageEditing(
   }
 
   return {
-
     isEditingModeActive,
     originalMessage,
     doSendEditRequest,

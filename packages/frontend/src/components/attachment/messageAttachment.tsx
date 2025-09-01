@@ -24,6 +24,7 @@ import AudioPlayer from '../AudioPlayer'
 import { T, C } from '@deltachat/jsonrpc-client'
 import { selectedAccountId } from '../../ScreenController'
 import { dirname, extname } from 'path'
+import { file } from 'jszip'
 
 type AttachmentProps = {
   text?: string
@@ -58,7 +59,7 @@ export default function Attachment({
       
       if (isSupportedMedia) {
         // Check if this is a supported media file that should be opened in secure viewer
-        const fileExtension = message.fileName?.toLowerCase().split('.').pop()
+        const fileExtension:string = message.fileName?.toLowerCase().split('.').pop()||'';
         const supportedImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
         const supportedVideoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v']
         
@@ -67,7 +68,7 @@ export default function Attachment({
             // For supported media files, we need to get the file path and open in secure viewer
             let tmpFile: string
             try {
-              tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName, message.file)
+              tmpFile = await runtime.copyFileToInternalTmpDir(message.fileName||"", message.file||"")
             } catch (copyError) {
               const errorMessage = copyError instanceof Error ? copyError.message : 'Unknown error'
               console.error('Failed to copy media file to temp directory:', errorMessage)
@@ -91,7 +92,7 @@ export default function Attachment({
             let filePathName = tmpFile
             
             // Handle .prv files (encrypted files)
-            if (message.fileName.toLowerCase().endsWith('.prv')) {
+            if (message.fileName?.toLowerCase().endsWith('.prv')) {
               filePathName = tmpFile.replace(/\\/g, '/')
               const response = await runtime.PrivittySendMessage('decryptFile', {
                 chatId: message.chatId,
@@ -121,7 +122,7 @@ export default function Attachment({
             }
             
             // Open in appropriate secure viewer
-            openSecureViewer(openDialog, filePathName, message.fileName, viewerType)
+            openSecureViewer(openDialog, filePathName, message.fileName||"", viewerType)
           } catch (error) {
             console.error('Error opening media in secure viewer:', error)
             // Fallback to regular opening
@@ -286,7 +287,8 @@ export default function Attachment({
       </div>
     )
   } else {
-    const { fileName, fileBytes, fileMime } = message
+    const { fileName, fileBytes, fileMime }: MessageTypeAttachmentSubset  = message
+  
     const extension = getExtension(message)
     return (
       <button

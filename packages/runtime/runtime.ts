@@ -56,6 +56,7 @@ export interface Runtime {
   ): void
   PrivittyHandleMessage(response: String): Promise<void>
   PrivittySendMessage(method: string, params: any ): Promise<string>
+  checkFileExists(filePath: string): Promise<boolean>
   getDesktopSettings(): Promise<DesktopSettingsType>
   setDesktopSetting(
     key: keyof DesktopSettingsType,

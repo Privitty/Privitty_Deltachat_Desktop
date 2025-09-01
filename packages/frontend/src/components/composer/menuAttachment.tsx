@@ -76,8 +76,7 @@ export default function MenuAttachment({
               file: filePath,
               filename: basename(filePath),
               viewtype: msgViewType,
-            },
-            sharedData
+            }
           )
           // start sending other files, don't wait until last file is sent
           if (runtime.getRuntimeInfo().target === 'browser') {
@@ -104,32 +103,60 @@ export default function MenuAttachment({
       setLastPath(dirname(files[0]))
       let filePathName = files[0].replace(/\\/g, '/')
       let encryptedFile: string = await runtime.PrivittySendMessage(
-          'encryptFile',
-          {
-            chatId: selectedChat?.id || 0,
-            filePath: dirname(filePathName),
-            fileName: basename(filePathName),
-            deleteInputFile: false,
-          }
-        )
-        console.log('encryptedFile:', encryptedFile)
-        let data = JSON.parse(encryptedFile)
-        console.log('result[0]:', data.result)
-        let fileName = JSON.parse(data.result).encryptedFile
-        console.log('parsed filename:', fileName)
+        'encryptFile',
+        {
+          chatId: selectedChat?.id || 0,
+          filePath: dirname(filePathName),
+          fileName: basename(filePathName),
+          deleteInputFile: false,
+        }
+      )
+      console.log('encryptedFile:', encryptedFile)
+      let data = JSON.parse(encryptedFile)
+      console.log('result[0]:', data.result)
+      let fileName = JSON.parse(data.result).encryptedFile
+      console.log('parsed filename:', fileName)
+      //check if file exists
+      if (!fileName || fileName === '') {
+        console.error('Encrypted file name is empty or undefined:', fileName)
+        runtime.showNotification({
+          title: 'Privitty',
+          body: 'Encrypted file name is empty or undefined',
+          icon: null,
+          chatId: 0,
+          messageId: 0,
+          accountId,
+          notificationType: 0,
+        })
+        return
+      } else if (!runtime.checkFileExists(fileName)) {
+        console.error('Encrypted file does not exist:', fileName)
+        runtime.showNotification({
+          title: 'Privitty',
+          body: 'Encrypted file does not exist',
+          icon: null,
+          chatId: 0,
+          messageId: 0,
+          accountId,
+          notificationType: 0,
+        })
+        return
+      }
 
       addFileToDraft(fileName, basename(fileName), 'File')
       setSharedData({
-            allowDownload: fileAttribute.allowDownload,
-            allowForward: fileAttribute.allowForward,
-            allowedTime: fileAttribute.allowedTime,
-            FileDirectory: fileName
-          })
-      
+        allowDownload: fileAttribute.allowDownload,
+        allowForward: fileAttribute.allowForward,
+        allowedTime: fileAttribute.allowedTime,
+        FileDirectory: fileName,
+      })
+
       // Don't delete the file immediately - it will be deleted after the message is sent
       // The file is needed by the backend when the user actually sends the message
-      console.log('Encrypted file added to draft, will be deleted after sending:', fileName)
-      
+      console.log(
+        'Encrypted file added to draft, will be deleted after sending:',
+        fileName
+      )
     } else if (files.length > 1) {
       confirmSendMultipleFiles(files, 'File')
     }
@@ -156,9 +183,47 @@ export default function MenuAttachment({
         if (selectedValue) {
           fileAttribute = selectedValue
           console.log('Selected value:', selectedValue)
+          if (fileAttribute.allowDownload === true) {
+            if (fileFilters[0].name === tx('file')) {
+              fileFilters = [
+                {
+                  name: tx('file'),
+                  extensions: ['*'],
+                },
+              ]
+            }
+          } else {
+            if (fileFilters[0].name === tx('file')) {
+              fileFilters = [
+                {
+                  name: tx('file'),
+                  extensions: [
+                    'jpg',
+                    'jpeg',
+                    'png',
+                    'gif',
+                    'bmp',
+                    'tiff',
+                    'tif',
+                    'webp',
+                    'svg',
+                    'mp4',
+                    'avi',
+                    'mov',
+                    'wmv',
+                    'flv',
+                    'webm',
+                    'mkv',
+                    'm4v',
+                    'pdf',
+                  ],
+                },
+              ]
+            }
+          }
         }
-        closeDialog(smallDialogID);
-        await addFilenameFileMod();
+        closeDialog(smallDialogID)
+        await addFilenameFileMod()
       },
       title: 'File Attributes',
       onClose: async (isConfirmed: boolean) => {
@@ -184,12 +249,12 @@ export default function MenuAttachment({
 
   const addFilenameFile = async () => {
     fileFilters = [
-        {
-          name: tx('file'),
-          extensions: ['*'],
-        },
-      ]
-   await openPrivittyProcess();
+      {
+        name: tx('file'),
+        extensions: ['*'],
+      },
+    ]
+    await openPrivittyProcess()
   }
 
   const addFilenameMedia = async () => {
@@ -198,13 +263,13 @@ export default function MenuAttachment({
       LastUsedSlot.Attachment
     )
     fileFilters = [
-        {
-          name: tx('image'),
-          extensions: IMAGE_EXTENSIONS,
-        },
-      ]
+      {
+        name: tx('image'),
+        extensions: IMAGE_EXTENSIONS,
+      },
+    ]
 
-       await openPrivittyProcess();
+    await openPrivittyProcess()
     // const files = await runtime.showOpenFileDialog({
     //   filters: [
     //     {

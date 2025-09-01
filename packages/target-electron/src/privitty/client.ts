@@ -1,4 +1,4 @@
-import { resolve } from 'path'
+import { resolve, join } from 'path'
 import { getLogger } from '@deltachat-desktop/shared/logger'
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import { getLogsPath } from '../application-constants'
@@ -14,7 +14,7 @@ import { PRV_EVENT_CREATE_VAULT } from './privitty_type'
 
 export class PrivittyServer {
   // Get absolute path of the C++ binary
-  _cmd_path = resolve('./src/privitty/dll/', 'privitty_jsonrpc_server')
+  _cmd_path = ''
 
   serverProcess: ChildProcessWithoutNullStreams | null
   constructor(
@@ -24,10 +24,29 @@ export class PrivittyServer {
   ) {
     console.log('inside constructor')
     this.serverProcess = null
+    // Compute default path now so error dialogs show a helpful location
+    this.cmd_path = this.computeCmdPath()
+  }
+
+  private computeCmdPath() {
+    const binName = process.platform === 'win32'
+      ? 'privitty_jsonrpc_server.exe'
+      : 'privitty_jsonrpc_server'
+
+    // In packaged apps, extraResources are placed under process.resourcesPath
+    if (app.isPackaged) {
+      return join(process.resourcesPath, 'privitty', 'dll', binName)
+    }
+
+    // In dev, resolve from the repo's privitty/dll folder
+    const appRoot = app.getAppPath()
+    return resolve(appRoot, 'privitty/dll', binName)
   }
 
   start() {
     console.log('Privitty Start Invoked')
+    // Resolve path at start to reflect packaged vs dev
+    this._cmd_path = this.computeCmdPath()
     this.serverProcess = spawn(this._cmd_path, {
       env: {
         // DC_ACCOUNTS_PATH: this.accounts_path,

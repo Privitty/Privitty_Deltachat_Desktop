@@ -23,24 +23,27 @@ const files = [
   '**/*',
   ...exclude_list,
   { from: '../../_locales', to: '_locales', filter: '*.json' },
+  { from: 'privitty/dll', to: 'privitty/dll' },
 ]
 const env = process.env
 
 /** @type {import('./types').DeepWriteable<import('electron-builder').Configuration>} */
 const build = {}
-build['appId'] = 'chat.delta.desktop.electron'
+build['appId'] = 'chat.privitty.desktop.electron'
+// Controls installed app name, exe basename and default install folder
+build['productName'] = 'PrivittyChat'
 build['extraMetadata'] = {
   //@ts-ignore
   // restore old name before mono-repo
-  name: 'deltachat-desktop',
+  name: 'privittychat-desktop',
 }
 
 if (previewBuild) {
-  build.appId = 'chat.delta.desktop.electron.dev'
+  build.appId = 'chat.privitty.desktop.electron.dev'
   //@ts-ignore
-  build.extraMetadata.name = 'deltachat-desktop-dev'
+  build.extraMetadata.name = 'privittychat-desktop-dev'
   //@ts-ignore
-  build.extraMetadata.productName = 'DeltaChat-DevBuild'
+  build.extraMetadata.productName = 'PrivittyChat-DevBuild'
   const p = JSON.parse(
     readFileSync(join(__dirname, '../package.json'), { encoding: 'utf-8' })
   )
@@ -72,12 +75,17 @@ build['fileAssociations'] = [
 ]
 
 build['files'] = files
+build['extraResources'] = [{ from: 'privitty/dll', to: 'privitty/dll' }]
 build['asarUnpack'] = [] // ['./node_modules/@deltachat/stdio-rpc-server']
 // 'html-dist/xdcs/' should be in 'asarUnpack', but that had "file already exists" errors in the ci
 // see https://github.com/deltachat/deltachat-desktop/pull/3876, so we now do it "manually" in the afterPackHook
 
 build['afterPack'] = './build/afterPackHook.cjs'
 build['afterSign'] = './build/afterSignHook.cjs'
+
+// With pnpm, let electron-builder skip native module rebuild to avoid invoking a global pnpm
+// which can fail on Windows ("%1 is not a valid Win32 application").
+build['npmRebuild'] = false
 
 if (typeof env.NO_ASAR !== 'undefined' && env.NO_ASAR != 'false') {
   build['asar'] = false
@@ -93,8 +101,8 @@ const PREBUILD_FILTERS = {
 
 build['mac'] = {
   appId: previewBuild
-    ? 'chat.delta.desktop.electron.devbuild'
-    : 'chat.delta.desktop.electron',
+    ? 'chat.privitty.desktop.electron.devbuild'
+    : 'chat.privitty.desktop.electron',
   category: 'public.app-category.social-networking',
   entitlements: 'build/entitlements.mac.plist',
   entitlementsInherit: 'build/entitlements.mac.plist',
@@ -137,12 +145,12 @@ build['linux'] = {
   target: ['AppImage', 'deb'],
   category: 'Network;Chat;InstantMessaging;',
   desktop: {
-    Comment: 'Delta Chat email-based messenger',
-    Keywords: 'dc;chat;delta;messaging;messenger;email',
+    Comment: 'privitty Chat email-based messenger',
+    Keywords: 'privitty;chat;privitty;messaging;messenger;email',
   },
   files: [...files, PREBUILD_FILTERS.NOT_MAC, PREBUILD_FILTERS.NOT_WINDOWS],
   icon: 'build/icon.icns', // electron builder gets the icon out of the mac icon archive
-  description: 'The Email messenger (https://delta.chat)',
+  description: 'The Email messenger (https://privitty.com)',
 }
 
 build['appImage'] = {
@@ -150,7 +158,7 @@ build['appImage'] = {
 }
 
 build['deb'] = {
-  packageName: previewBuild ? 'deltachat-desktop-preview' : 'deltachat-desktop',
+  packageName: previewBuild ? 'privittychat-desktop-preview' : 'privittychat-desktop',
   depends: [
     'libasound2',
     'libgtk-3-0',
@@ -167,12 +175,13 @@ build['deb'] = {
 
 build['win'] = {
   icon: 'html-dist/images/deltachat.ico',
-  artifactName: '${productName}-${version}-Setup.${arch}.${ext}', // specifying it inside of build['nsis'] does not work for unknown reasons.
+  // Use a fixed prefix for Windows installer filenames
+  artifactName: 'PrivittyChat-${version}-Setup.${arch}.${ext}', // specifying it inside of build['nsis'] does not work for unknown reasons.
   files: [...files, PREBUILD_FILTERS.NOT_MAC, PREBUILD_FILTERS.NOT_LINUX],
 }
 
 build['portable'] = {
-  artifactName: '${productName}-${version}-Portable.${arch}.${ext}',
+  artifactName: 'PrivittyChat-${version}-Portable.${arch}.${ext}',
 }
 
 // supported languages are on https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/supported-languages?pivots=store-installer-msix
@@ -235,7 +244,7 @@ build['appx'] = {
   applicationId: build['appId'],
   publisher: 'CN=C13753E5-D590-467C-9FCA-6799E1A5EC1E',
   publisherDisplayName: 'merlinux',
-  identityName: 'merlinux.DeltaChat',
+  identityName: 'merlinux.privittyChat',
   languages,
   artifactName: '${productName}-${version}-Package.${arch}.${ext}',
 }

@@ -45,6 +45,7 @@ import DeltaChatController from './deltachat/controller.js'
 import { BuildInfo } from './get-build-info.js'
 import { updateContentProtectionOnAllActiveWindows } from './content-protection.js'
 import { MediaType } from '@deltachat-desktop/runtime-interface'
+import * as fs from 'fs/promises'; // Using the promise-based API for async/await
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -266,6 +267,17 @@ export async function init(cwd: string, logHandler: LogHandler) {
       }
     }
   )
+
+  ipcMain.handle('getFileExist', async (_ev, filePath) => {
+   try{
+    // Check access to the file with the F_OK flag (default, checks for existence)
+    await fs.access(filePath);
+    return true; // No error means the file exists
+   }catch (error) {
+      log.error('Error checking file existence:', error)
+   }
+    return false
+  })
 
   ipcMain.handle('privittyHandleMessage', (_ev, response) => {
     console.log('Privitty message IPC', response)

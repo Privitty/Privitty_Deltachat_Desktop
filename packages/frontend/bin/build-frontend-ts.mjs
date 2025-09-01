@@ -1,5 +1,6 @@
 //@ts-check
 import path from 'path'
+import { existsSync } from 'fs'
 import { copyFile, readFile } from 'fs/promises'
 
 import esbuild from 'esbuild'
@@ -23,6 +24,19 @@ function config(options) {
     plugins.push(reporterPlugin)
   }
 
+  // Optional local alias for jsonrpc-client, to support using a local core repo.
+  // Set DC_JSONRPC_CLIENT_DIR to override, otherwise try ../../core/deltachat-jsonrpc/typescript
+  const alias = { path: 'path-browserify' }
+  try {
+    const candidate = process.env.DC_JSONRPC_CLIENT_DIR
+      ? path.resolve(process.env.DC_JSONRPC_CLIENT_DIR)
+      : path.resolve(process.cwd(), '../../core/deltachat-jsonrpc/typescript')
+    if (existsSync(path.join(candidate, 'package.json'))) {
+      alias['@deltachat/jsonrpc-client'] = candidate
+      console.log('- Using local @deltachat/jsonrpc-client from', candidate)
+    }
+  } catch {}
+
   return {
     entryPoints: ['src/main.tsx'],
     bundle: true,
@@ -36,9 +50,7 @@ function config(options) {
     plugins,
     external: ['*.jpg', '*.png', '*.webp', '*.svg'],
     format: 'esm',
-    alias: {
-      path: 'path-browserify',
-    },
+    alias,
   }
 }
 

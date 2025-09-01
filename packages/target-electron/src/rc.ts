@@ -30,6 +30,8 @@ if (config.help || config.h) {
 if (config.devmode) {
   config['log-debug'] = true
   config['log-to-console'] = true
+  // In devmode, allow using a locally built core via env var
+  config['allow-unsafe-core-replacement'] = true
 }
 
 const rc_config = Object.freeze(config)

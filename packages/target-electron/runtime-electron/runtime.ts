@@ -121,7 +121,12 @@ class ElectronDeltachat extends BaseDeltaChat<ElectronTransport> {
 }
 
 class ElectronRuntime implements Runtime {
- async PrivittyHandleMessage(response: String): Promise<void> {
+  checkFileExists(filePath: string): Promise<boolean> {
+    console.log('checkFileExists runtime', filePath)
+    return Promise.resolve(ipcBackend.invoke('getFileExist', filePath))
+  }
+
+  async PrivittyHandleMessage(response: String): Promise<void> {
     // TODO: Implement PrivittyHandleMessage logic or leave as noop if not needed
     // For now, just log or ignore
     // this.log?.info('PrivittyHandleMessage called', message)
@@ -129,7 +134,7 @@ class ElectronRuntime implements Runtime {
     ipcBackend.invoke('privittyHandleMessage', response)
     return Promise.resolve()
   }
-  async PrivittySendMessage(method: string, params: any ): Promise<string> {
+  async PrivittySendMessage(method: string, params: any): Promise<string> {
     // TODO: Implement PrivittySendMessage logic or leave as noop if not needed
     // For now, just log or ignore
     // this.log?.info('PrivittySendMessage called', message)
@@ -358,7 +363,9 @@ class ElectronRuntime implements Runtime {
      * does not decode them back we have to decode those before passing the path to the browser
      */
     // Ensure proper file URL format for macOS
-    const fileUrl = sticker_path.startsWith('/') ? `file://${sticker_path}` : `file:///${sticker_path}`
+    const fileUrl = sticker_path.startsWith('/')
+      ? `file://${sticker_path}`
+      : `file:///${sticker_path}`
     const a = encodeURI(fileUrl)
     return a
       .replace(/[?#]/g, encodeURIComponent) // special case # and ? are not encoded by encodeURI but "ignored" in URLs

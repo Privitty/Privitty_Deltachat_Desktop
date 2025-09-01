@@ -14,7 +14,7 @@ interface FileAttributeContextType {
 }
 
 // Create context with TypeScript type
-const FileAttributeContext = createContext<
+export const FileAttributeContext = createContext<
   FileAttributeContextType | undefined
 >(undefined)
 
@@ -48,6 +48,24 @@ export function useSharedData() {
   const context = useContext(FileAttributeContext)
   if (context === undefined) {
     throw new Error('useSharedData must be used within a FileAttributeProvider')
+  }
+  return context
+}
+
+// Optional variant: returns safe defaults when no provider is present.
+export function useSharedDataOptional(): FileAttributeContextType {
+  const context = useContext(FileAttributeContext)
+  if (context === undefined) {
+    return {
+      sharedData: {
+        allowDownload: false,
+        allowForward: false,
+        allowedTime: '',
+        FileDirectory: '',
+      },
+      // no-op setter outside provider (typed as any)
+      setSharedData: (() => {}) as any,
+    }
   }
   return context
 }
